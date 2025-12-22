@@ -15,60 +15,103 @@ import QueryBuilder from '../../builder/QueryBuilder';
 import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
 import prisma from '../../config/prisma';
+import { generateStudentId, generateStudentUserId } from '../../utils/idGenerator';
 
 /** Create a new Student profile */
 const createStudent = async (data: IStudentCreate): Promise<IStudentWithUser> => {
-    // Check if user exists and has STUDENT role
-    const user = await prisma.user.findUnique({
-        where: { id: data.userId },
-    });
-
-    if (!user) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
+    // Validate required fields
+    if (!data.email) {
+        throw new AppError(StatusCodes.BAD_REQUEST, 'Email is required for all students');
     }
 
-    if (user.role !== 'STUDENT') {
-        throw new AppError(StatusCodes.BAD_REQUEST, 'User must have STUDENT role');
-    }
-
-    // Check if student profile already exists for this user
-    const existingStudent = await StudentModel.findUnique({
-        where: { userId: data.userId },
+    // Check if email already exists
+    const existingEmail = await prisma.user.findUnique({
+        where: { email: data.email },
     });
 
-    if (existingStudent) {
-        throw new AppError(StatusCodes.CONFLICT, 'Student profile already exists for this user');
+    if (existingEmail) {
+        throw new AppError(StatusCodes.CONFLICT, 'Email already exists');
     }
 
-    // Check if studentId is already taken
-    const studentIdExists = await StudentModel.findUnique({
-        where: { studentId: data.studentId },
-    });
+    // Generate user ID and create user if not provided
+    let userId = data.userId;
+    let user;
 
-    if (studentIdExists) {
-        throw new AppError(StatusCodes.CONFLICT, 'Student ID already exists');
+    if (userId) {
+        // Check if user exists and has STUDENT role
+        user = await prisma.user.findUnique({
+            where: { id: userId },
+        });
+
+        if (!user) {
+            throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
+        }
+
+        if (user.role !== 'STUDENT') {
+            throw new AppError(StatusCodes.BAD_REQUEST, 'User must have STUDENT role');
+        }
+
+        // Check if student profile already exists for this user
+        const existingStudent = await StudentModel.findUnique({
+            where: { userId },
+        });
+
+        if (existingStudent) {
+            throw new AppError(StatusCodes.CONFLICT, 'Student profile already exists for this user');
+        }
+    } else {
+        // Create new user with generated ID
+        userId = generateStudentUserId(data.name);
+
+        user = await prisma.user.create({
+            data: {
+                id: userId,
+                name: data.name,
+                email: data.email, // Use provided email (REQUIRED)
+                username: userId,
+                password: data.password || 'changeme123', // Use provided password or default
+                role: 'STUDENT',
+                status: 'ACTIVE',
+                departmentId: data.departmentId, // Optional - can be null
+            }
+        });
     }
 
-    // Check if batch exists
-    const batch = await BatchModel.findUnique({
-        where: { id: data.batchId },
-    });
+    // AUTO-GENERATE studentId (not provided by user)
+    const studentId = await generateStudentId();
 
-    if (!batch) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'Batch not found');
+    // Validate batch exists (only if provided)
+    if (data.batchId) {
+        const batch = await BatchModel.findUnique({
+            where: { id: data.batchId },
+        });
+
+        if (!batch) {
+            throw new AppError(StatusCodes.NOT_FOUND, 'Batch not found');
+        }
     }
 
-    // Check if department exists
-    const department = await DepartmentModel.findUnique({
-        where: { id: data.departmentId },
-    });
+    // Validate department exists (only if provided)
+    if (data.departmentId) {
+        const department = await DepartmentModel.findUnique({
+            where: { id: data.departmentId },
+        });
 
-    if (!department) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
+        if (!department) {
+            throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
+        }
     }
 
     const student = await StudentModel.create({
-        data,
+        data: {
+            userId,
+            studentId, // Always auto-generated
+            batchId: data.batchId, // Optional
+            departmentId: data.departmentId, // Optional
+            semester: data.semester || 1,
+            gpa: data.gpa || 0.0,
+            credits: data.credits || 0,
+        },
         include: {
             user: true,
             batch: true,
@@ -200,16 +243,6 @@ const updateStudent = async (id: string, data: IStudentUpdate): Promise<IStudent
 
     if (!existingStudent) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
-    }
-
-    // If studentId is being updated, check if it's already taken
-    if (data.studentId && data.studentId !== existingStudent.studentId) {
-        const studentIdExists = await StudentModel.findUnique({
-            where: { studentId: data.studentId },
-        });
-        if (studentIdExists) {
-            throw new AppError(StatusCodes.CONFLICT, 'Student ID already exists');
-        }
     }
 
     // If batchId is being updated, check if it exists
@@ -696,6 +729,303 @@ const getStudentDashboard = async (studentId: string): Promise<IStudentDashboard
     };
 };
 
+/** Assign Student to Batch */
+const assignStudentToBatch = async (studentId: string, batchId: string): Promise<any> => {
+    // Check if student exists
+    const student = await StudentModel.findUnique({
+        where: { id: studentId },
+    });
+
+    if (!student) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
+    }
+
+    // Check if batch exists
+    const batch = await BatchModel.findUnique({
+        where: { id: batchId },
+    });
+
+    if (!batch) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Batch not found');
+    }
+
+    // Update student with batch
+    const updatedStudent = await StudentModel.update({
+        where: { id: studentId },
+        data: { batchId },
+        include: {
+            user: true,
+            batch: true,
+            department: true,
+        },
+    });
+
+    return updatedStudent;
+};
+
+/** Remove Student from Batch */
+const removeStudentFromBatch = async (studentId: string): Promise<any> => {
+    // Check if student exists
+    const student = await StudentModel.findUnique({
+        where: { id: studentId },
+    });
+
+    if (!student) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
+    }
+
+    // Update student to remove batch
+    const updatedStudent = await StudentModel.update({
+        where: { id: studentId },
+        data: { batchId: undefined },
+        include: {
+            user: true,
+            batch: true,
+            department: true,
+        },
+    });
+
+    return updatedStudent;
+};
+
+/** Assign Student to Department */
+const assignStudentToDepartment = async (studentId: string, departmentId: string): Promise<any> => {
+    // Check if student exists
+    const student = await StudentModel.findUnique({
+        where: { id: studentId },
+    });
+
+    if (!student) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
+    }
+
+    // Check if department exists
+    const department = await DepartmentModel.findUnique({
+        where: { id: departmentId },
+    });
+
+    if (!department) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
+    }
+
+    // Update student with department
+    const updatedStudent = await StudentModel.update({
+        where: { id: studentId },
+        data: { departmentId },
+        include: {
+            user: true,
+            batch: true,
+            department: true,
+        },
+    });
+
+    return updatedStudent;
+};
+
+/** Remove Student from Department */
+const removeStudentFromDepartment = async (studentId: string): Promise<any> => {
+    // Check if student exists
+    const student = await StudentModel.findUnique({
+        where: { id: studentId },
+    });
+
+    if (!student) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
+    }
+
+    // Update student to remove department
+    const updatedStudent = await StudentModel.update({
+        where: { id: studentId },
+        data: { departmentId: undefined },
+        include: {
+            user: true,
+            batch: true,
+            department: true,
+        },
+    });
+
+    return updatedStudent;
+};
+
+/** Assign Student to Course */
+const assignStudentToCourse = async (studentId: string, courseId: string): Promise<any> => {
+    // Check if student exists
+    const student = await StudentModel.findUnique({
+        where: { id: studentId },
+    });
+
+    if (!student) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
+    }
+
+    // Check if course exists
+    const course = await prisma.course.findUnique({
+        where: { id: courseId },
+    });
+
+    if (!course) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Course not found');
+    }
+
+    // Check if already enrolled
+    const existingEnrollment = await prisma.courseEnrollment.findUnique({
+        where: {
+            studentId_courseId: {
+                studentId: student.userId,
+                courseId,
+            },
+        },
+    });
+
+    if (existingEnrollment) {
+        throw new AppError(StatusCodes.CONFLICT, 'Student already enrolled in this course');
+    }
+
+    // Create enrollment
+    const enrollment = await prisma.courseEnrollment.create({
+        data: {
+            studentId: student.userId,
+            courseId,
+        },
+        include: {
+            course: true,
+        },
+    });
+
+    return enrollment;
+};
+
+/** Remove Student from Course */
+const removeStudentFromCourse = async (studentId: string, courseId: string): Promise<any> => {
+    // Check if student exists
+    const student = await StudentModel.findUnique({
+        where: { id: studentId },
+    });
+
+    if (!student) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
+    }
+
+    // Check if enrollment exists
+    const enrollment = await prisma.courseEnrollment.findFirst({
+        where: {
+            studentId: student.userId,
+            courseId,
+        },
+    });
+
+    if (!enrollment) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Enrollment not found');
+    }
+
+    // Delete enrollment
+    await prisma.courseEnrollment.delete({
+        where: {
+            id: enrollment.id,
+        },
+    });
+
+    return { message: 'Student removed from course successfully' };
+};
+
+/** Bulk Assign Students to Batch */
+const bulkAssignStudentsToBatch = async (studentIds: string[], batchId: string): Promise<{ count: number; students: any[] }> => {
+    // Check if batch exists
+    const batch = await BatchModel.findUnique({
+        where: { id: batchId },
+    });
+
+    if (!batch) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Batch not found');
+    }
+
+    // Update multiple students
+    const result = await prisma.student.updateMany({
+        where: {
+            id: { in: studentIds }
+        },
+        data: {
+            batchId
+        }
+    });
+
+    // Get updated students
+    const updatedStudents = await StudentModel.findMany({
+        where: {
+            id: { in: studentIds }
+        },
+        include: {
+            user: true,
+            batch: true,
+            department: true,
+        },
+    });
+
+    return {
+        count: result.count,
+        students: updatedStudents,
+    };
+};
+
+/** Bulk Assign Students to Department */
+const bulkAssignStudentsToDepartment = async (studentIds: string[], departmentId: string): Promise<{ count: number; students: any[] }> => {
+    // Check if department exists
+    const department = await DepartmentModel.findUnique({
+        where: { id: departmentId },
+    });
+
+    if (!department) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
+    }
+
+    // Update multiple students
+    const result = await prisma.student.updateMany({
+        where: {
+            id: { in: studentIds }
+        },
+        data: {
+            departmentId
+        }
+    });
+
+    // Get updated students
+    const updatedStudents = await StudentModel.findMany({
+        where: {
+            id: { in: studentIds }
+        },
+        include: {
+            user: true,
+            batch: true,
+            department: true,
+        },
+    });
+
+    return {
+        count: result.count,
+        students: updatedStudents,
+    };
+};
+
+/** Get Unassigned Students */
+const getUnassignedStudents = async (): Promise<any[]> => {
+    // Get students without batch or department
+    const unassignedStudents = await StudentModel.findMany({
+        where: {
+            OR: [
+                { batchId: undefined },
+                { departmentId: undefined }
+            ]
+        },
+        include: {
+            user: true,
+            batch: true,
+            department: true,
+        },
+    });
+
+    return unassignedStudents;
+};
+
 export const studentServices = {
     createStudent,
     getStudentById,
@@ -709,4 +1039,14 @@ export const studentServices = {
     submitLeaveRequest,
     updateStudentProfile,
     getStudentDashboard,
+    // Assignment methods
+    assignStudentToBatch,
+    removeStudentFromBatch,
+    assignStudentToDepartment,
+    removeStudentFromDepartment,
+    assignStudentToCourse,
+    removeStudentFromCourse,
+    bulkAssignStudentsToBatch,
+    bulkAssignStudentsToDepartment,
+    getUnassignedStudents,
 };

@@ -20,6 +20,8 @@ const AuthorizeRequest = (...roles: string[]) => {
     const token = req.headers.authorization?.split(' ')[1];
     // If no token is provided, throw an unauthorized error
     if (!token) {
+      console.error('Authorization Error:', 'No token provided');
+
       throw new AppError(StatusCodes.UNAUTHORIZED, 'Unauthorized Access');
     }
     try {

@@ -27,7 +27,7 @@ model Department {
     name        String   @unique
     code        String   @unique
     description String?
-    headId      String?
+    headId      String? // OPTIONAL: Department can exist without head, head can be assigned later
     isActive    Boolean  @default(true)
     createdAt   DateTime @default(now())
     updatedAt   DateTime @updatedAt
@@ -39,6 +39,7 @@ model Department {
     users     User[]     @relation("DepartmentUsers")
     subjects  Subject[]
     semesters Semester[]
+    head      Teacher?   @relation("DepartmentHead", fields: [headId], references: [id])
 
     @@map("departments")
 }
@@ -89,21 +90,21 @@ model Course {
     code         String   @unique
     description  String?
     credits      Int      @default(0)
-    batchId      String
-    departmentId String
-    teacherId    String
-    subjectId    String?
-    semesterId   String?
+    batchId      String? // OPTIONAL: Can be assigned later via assignment API
+    departmentId String? // OPTIONAL: Can be assigned later via assignment API
+    teacherId    String? // OPTIONAL: Can be assigned later via assignment API
+    subjectId    String? // OPTIONAL: Can be assigned later
+    semesterId   String? // OPTIONAL: Can be assigned later
     semester     Int      @default(1)
     isActive     Boolean  @default(true)
     createdAt    DateTime @default(now())
     updatedAt    DateTime @updatedAt
 
     // Relationships
-    teacher            User                @relation("TeacherCourses", fields: [teacherId], references: [id], map: "course_teacher_fkey")
-    teacherProfile     Teacher             @relation("TeacherProfileCourses", fields: [teacherId], references: [id], map: "course_teacher_profile_fkey")
-    batch              Batch               @relation(fields: [batchId], references: [id])
-    department         Department          @relation(fields: [departmentId], references: [id])
+    teacher            User?               @relation("TeacherCourses", fields: [teacherId], references: [id], map: "course_teacher_fkey")
+    teacherProfile     Teacher?            @relation("TeacherProfileCourses", fields: [teacherId], references: [id], map: "course_teacher_profile_fkey")
+    batch              Batch?              @relation(fields: [batchId], references: [id])
+    department         Department?         @relation(fields: [departmentId], references: [id])
     subject            Subject?            @relation(fields: [subjectId], references: [id])
     semesterInfo       Semester?           @relation("CourseSemester", fields: [semesterId], references: [id])
     enrollments        CourseEnrollment[]
@@ -133,9 +134,9 @@ model CourseEnrollment {
 // Class schedule model
 model ClassSchedule {
     id        String   @id @default(cuid())
-    teacherId String
-    courseId  String
-    batchId   String
+    teacherId String? // OPTIONAL: Can be assigned later via assignment API
+    courseId  String? // OPTIONAL: Can be assigned later via assignment API
+    batchId   String? // OPTIONAL: Can be assigned later via assignment API
     dayOfWeek Int
     startTime String
     endTime   String
@@ -146,9 +147,21 @@ model ClassSchedule {
     updatedAt DateTime @updatedAt
 
     // Relationships
-    teacher User   @relation("TeacherSchedules", fields: [teacherId], references: [id])
-    course  Course @relation(fields: [courseId], references: [id])
-    batch   Batch  @relation(fields: [batchId], references: [id])
+    teacher User?   @relation("TeacherSchedules", fields: [teacherId], references: [id])
+    course  Course? @relation(fields: [courseId], references: [id])
+    batch   Batch?  @relation(fields: [batchId], references: [id])
 
     @@map("class_schedules")
+}
+
+// Settings model
+model Setting {
+    id        String   @id @default(cuid())
+    key       String   @unique
+    value     String
+    group     String   @default("GENERAL")
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@map("settings")
 }

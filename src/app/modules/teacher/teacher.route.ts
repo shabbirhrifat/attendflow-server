@@ -416,4 +416,68 @@ router.get(
     TeacherController.getTeacherProfileByUserId
 );
 
+/**
+ * @description assign teacher to department
+ * @param {string} path - /api/teacher/:teacherId/assign-department
+ * @param {function} middleware - ['AuthorizeRequest(ADMIN)', 'validateRequest(TeacherValidation.teacherIdParam)', 'validateRequest(TeacherValidation.teacherDepartmentAssignment)']
+ * @param {function} controller - ['assignTeacherToDepartment']
+ * @returns {object} - router
+ * @access private - ['ADMIN']
+ * @method POST
+ */
+router.post(
+    '/:teacherId/assign-department',
+    AuthorizeRequest('ADMIN'),
+    validateRequest(TeacherValidation.teacherIdParam),
+    validateRequest(TeacherValidation.teacherDepartmentAssignment),
+    TeacherController.assignTeacherToDepartment
+);
+
+/**
+ * @description remove teacher from department
+ * @param {string} path - /api/teacher/:teacherId/remove-department
+ * @param {function} middleware - ['AuthorizeRequest(ADMIN)', 'validateRequest(TeacherValidation.teacherIdParam)']
+ * @param {function} controller - ['removeTeacherFromDepartment']
+ * @returns {object} - router
+ * @access private - ['ADMIN']
+ * @method POST
+ */
+router.post(
+    '/:teacherId/remove-department',
+    AuthorizeRequest('ADMIN'),
+    validateRequest(TeacherValidation.teacherIdParam),
+    TeacherController.removeTeacherFromDepartment
+);
+
+/**
+ * @description bulk assign teachers to department
+ * @param {string} path - /api/teacher/bulk-assign-department
+ * @param {function} middleware - ['AuthorizeRequest(ADMIN)', 'validateRequest(TeacherValidation.bulkTeacherAssignment)']
+ * @param {function} controller - ['bulkAssignTeachersToDepartment']
+ * @returns {object} - router
+ * @access private - ['ADMIN']
+ * @method POST
+ */
+router.post(
+    '/bulk-assign-department',
+    AuthorizeRequest('ADMIN'),
+    validateRequest(TeacherValidation.bulkTeacherAssignment),
+    TeacherController.bulkAssignTeachersToDepartment
+);
+
+/**
+ * @description get unassigned teachers (teachers without department)
+ * @param {string} path - /api/teacher/unassigned
+ * @param {function} middleware - ['AuthorizeRequest(ADMIN)']
+ * @param {function} controller - ['getUnassignedTeachers']
+ * @returns {object} - router
+ * @access private - ['ADMIN']
+ * @method GET
+ */
+router.get(
+    '/unassigned',
+    AuthorizeRequest('ADMIN'),
+    TeacherController.getUnassignedTeachers
+);
+
 export default router;

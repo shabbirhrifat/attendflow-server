@@ -13,6 +13,7 @@ import { courseRoutes } from '../modules/course/course.route';
 import { SettingsRoutes } from '../modules/settings/settings.route';
 import { ImportRoutes } from '../modules/import/import.route';
 import { AdminRoutes } from '../modules/admin/admin.route';
+import { AssignmentRoutes } from '../modules/assignment/assignment.route';
 
 const router = Router();
 
@@ -72,6 +73,10 @@ const routes = [
   {
     path: '/import',
     route: ImportRoutes,
+  },
+  {
+    path: '/assignments',
+    route: AssignmentRoutes,
   },
 ];
 

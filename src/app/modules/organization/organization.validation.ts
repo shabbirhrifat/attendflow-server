@@ -92,7 +92,7 @@ export const updateBatchValidationSchema = z.object({
 
 // Batch filters validation
 export const batchFiltersValidationSchema = z.object({
-    year: z.number().int().min(2000, 'Year must be at least 2000').max(2100, 'Year must be at most 2100').optional(),
+    year: z.coerce.number().int().min(2000, 'Year must be at least 2000').max(2100, 'Year must be at most 2100').optional(),
     isActive: z.boolean().optional(),
     status: z.enum(['all', 'active', 'inactive']).optional(),
     search: z.string().max(100, 'Search term must be less than 100 characters').optional(),

@@ -1,1273 +1,1733 @@
 {
-	"info": {
-		"_postman_id": "dashboard-app-collection",
-		"name": "AttendFlow - Dashboard App (Admin Panel)",
-		"description": "API collection for AttendFlow Dashboard Application - Admin Panel. This collection contains management, administrative, and analytical endpoints used by Admins and Teachers with enhanced permissions.",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-	},
-	"auth": {
-		"type": "bearer",
-		"bearer": [
-			{
-				"key": "token",
-				"value": "{{jwt_token}}",
-				"type": "string"
-			}
-		]
-	},
-	"variable": [
-		{
-			"key": "base_url",
-			"value": "http://localhost:5000/api/v1",
-			"type": "string"
-		},
-		{
-			"key": "jwt_token",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "user_id",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "role",
-			"value": "",
-			"type": "string"
-		}
-	],
-	"item": [
-		{
-			"name": "🔐 Authentication",
-			"description": "Authentication endpoints for Dashboard App access",
-			"item": [
-				{
-					"name": "Admin Login",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"email\": \"admin@attendflow.com\",\n  \"password\": \"admin123\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/admin/auth/login",
-							"host": ["{{base_url}}"],
-							"path": ["admin", "auth", "login"]
-						}
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    const response = pm.response.json();",
-									"    pm.collectionVariables.set('jwt_token', response.data.accessToken);",
-									"    pm.collectionVariables.set('user_id', response.data.user.id);",
-									"    pm.collectionVariables.set('role', response.data.user.role);",
-									"}"
-								]
-							}
-						}
-					]
-				},
-				{
-					"name": "Teacher Login (Enhanced Access)",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"email\": \"teacher@attendflow.com\",\n  \"password\": \"teacher123\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/auth/login",
-							"host": ["{{base_url}}"],
-							"path": ["auth", "login"]
-						}
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    const response = pm.response.json();",
-									"    pm.collectionVariables.set('jwt_token', response.data.accessToken);",
-									"    pm.collectionVariables.set('user_id', response.data.user.id);",
-									"    pm.collectionVariables.set('role', response.data.user.role);",
-									"}"
-								]
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "📊 Dashboard Analytics",
-			"description": "Comprehensive analytics and reporting endpoints for Admins",
-			"item": [
-				{
-					"name": "Get Dashboard Overview",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/dashboard/overview?startDate=2024-01-01&endDate=2024-12-31&departmentId={{departmentId}}&batchId={{batchId}}",
-							"host": ["{{base_url}}"],
-							"path": ["dashboard", "overview"],
-							"query": [
-								{
-									"key": "startDate",
-									"value": "2024-01-01"
-								},
-								{
-									"key": "endDate",
-									"value": "2024-12-31"
-								},
-								{
-									"key": "departmentId",
-									"value": "{{departmentId}}"
-								},
-								{
-									"key": "batchId",
-									"value": "{{batchId}}"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Get Class Level Statistics",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/dashboard/stats/class-level?courseId={{courseId}}&batchId={{batchId}}&departmentId={{departmentId}}&page=1&limit=20",
-							"host": ["{{base_url}}"],
-							"path": ["dashboard", "stats", "class-level"],
-							"query": [
-								{
-									"key": "courseId",
-									"value": "{{courseId}}"
-								},
-								{
-									"key": "batchId",
-									"value": "{{batchId}}"
-								},
-								{
-									"key": "departmentId",
-									"value": "{{departmentId}}"
-								},
-								{
-									"key": "page",
-									"value": "1"
-								},
-								{
-									"key": "limit",
-									"value": "20"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Get Subject Level Statistics",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/dashboard/stats/subject-level?subjectId={{subjectId}}&batchId={{batchId}}&departmentId={{departmentId}}",
-							"host": ["{{base_url}}"],
-							"path": ["dashboard", "stats", "subject-level"],
-							"query": [
-								{
-									"key": "subjectId",
-									"value": "{{subjectId}}"
-								},
-								{
-									"key": "batchId",
-									"value": "{{batchId}}"
-								},
-								{
-									"key": "departmentId",
-									"value": "{{departmentId}}"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Get Teacher Performance Data",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/dashboard/stats/teacher-performance?teacherId={{teacherId}}&courseId={{courseId}}&startDate=2024-01-01&endDate=2024-12-31",
-							"host": ["{{base_url}}"],
-							"path": ["dashboard", "stats", "teacher-performance"],
-							"query": [
-								{
-									"key": "teacherId",
-									"value": "{{teacherId}}"
-								},
-								{
-									"key": "courseId",
-									"value": "{{courseId}}"
-								},
-								{
-									"key": "startDate",
-									"value": "2024-01-01"
-								},
-								{
-									"key": "endDate",
-									"value": "2024-12-31"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Get Low Attendance Alerts",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/dashboard/alerts?threshold=75&page=1&limit=50",
-							"host": ["{{base_url}}"],
-							"path": ["dashboard", "alerts"],
-							"query": [
-								{
-									"key": "threshold",
-									"value": "75"
-								},
-								{
-									"key": "page",
-									"value": "1"
-								},
-								{
-									"key": "limit",
-									"value": "50"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Generate Attendance Report",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/dashboard/attendance-report?reportType=overall&startDate=2024-01-01&endDate=2024-12-31&departmentIds={{departmentId}}&batchIds={{batchId}}",
-							"host": ["{{base_url}}"],
-							"path": ["dashboard", "attendance-report"],
-							"query": [
-								{
-									"key": "reportType",
-									"value": "overall"
-								},
-								{
-									"key": "startDate",
-									"value": "2024-01-01"
-								},
-								{
-									"key": "endDate",
-									"value": "2024-12-31"
-								},
-								{
-									"key": "departmentIds",
-									"value": "{{departmentId}}"
-								},
-								{
-									"key": "batchIds",
-									"value": "{{batchId}}"
-								}
-							]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "👥 User Management",
-			"description": "Complete CRUD operations for user management",
-			"item": [
-				{
-					"name": "Create User",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"STUDENT\",\n  \"phone\": \"+1234567890\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/user/create-user",
-							"host": ["{{base_url}}"],
-							"path": ["user", "create-user"]
-						}
-					}
-				},
-				{
-					"name": "Get All Users",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/user?page=1&limit=20&role=STUDENT&search=john",
-							"host": ["{{base_url}}"],
-							"path": ["user"],
-							"query": [
-								{
-									"key": "page",
-									"value": "1"
-								},
-								{
-									"key": "limit",
-									"value": "20"
-								},
-								{
-									"key": "role",
-									"value": "STUDENT"
-								},
-								{
-									"key": "search",
-									"value": "john"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Update User",
-					"request": {
-						"method": "PATCH",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Smith\",\n  \"phone\": \"+1234567890\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/user/{{userId}}",
-							"host": ["{{base_url}}"],
-							"path": ["user", "{{userId}}"]
-						}
-					}
-				},
-				{
-					"name": "Delete User",
-					"request": {
-						"method": "DELETE",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/user/{{userId}}",
-							"host": ["{{base_url}}"],
-							"path": ["user", "{{userId}}"]
-						}
-					}
-				},
-				{
-					"name": "Change User Status",
-					"request": {
-						"method": "PATCH",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"status\": \"INACTIVE\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/user/{{userId}}/status",
-							"host": ["{{base_url}}"],
-							"path": ["user", "{{userId}}", "status"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "🎓 Student Management",
-			"description": "Complete student management operations",
-			"item": [
-				{
-					"name": "Create Student",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"userId\": \"user-id-here\",\n  \"studentId\": \"STU2024001\",\n  \"departmentId\": \"dept-id-here\",\n  \"batchId\": \"batch-id-here\",\n  \"semester\": 1,\n  \"rollNumber\": \"001\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/student/create-student",
-							"host": ["{{base_url}}"],
-							"path": ["student", "create-student"]
-						}
-					}
-				},
-				{
-					"name": "Get All Students",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/student?departmentId={{departmentId}}&batchId={{batchId}}&page=1&limit=20",
-							"host": ["{{base_url}}"],
-							"path": ["student"],
-							"query": [
-								{
-									"key": "departmentId",
-									"value": "{{departmentId}}"
-								},
-								{
-									"key": "batchId",
-									"value": "{{batchId}}"
-								},
-								{
-									"key": "page",
-									"value": "1"
-								},
-								{
-									"key": "limit",
-									"value": "20"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Update Student",
-					"request": {
-						"method": "PATCH",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"semester\": 2,\n  \"batchId\": \"new-batch-id\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/student/{{studentId}}",
-							"host": ["{{base_url}}"],
-							"path": ["student", "{{studentId}}"]
-						}
-					}
-				},
-				{
-					"name": "Delete Student",
-					"request": {
-						"method": "DELETE",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/student/{{studentId}}",
-							"host": ["{{base_url}}"],
-							"path": ["student", "{{studentId}}"]
-						}
-					}
-				},
-				{
-					"name": "Get Single Student",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/student/{{studentId}}",
-							"host": ["{{base_url}}"],
-							"path": ["student", "{{studentId}}"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "👨‍🏫 Teacher Management",
-			"description": "Complete teacher management operations",
-			"item": [
-				{
-					"name": "Create Teacher",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"userId\": \"user-id-here\",\n  \"employeeId\": \"EMP2024001\",\n  \"departmentId\": \"dept-id-here\",\n  \"designation\": \"Assistant Professor\",\n  \"specialization\": \"Computer Science\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/teacher/",
-							"host": ["{{base_url}}"],
-							"path": ["teacher", ""]
-						}
-					}
-				},
-				{
-					"name": "Get All Teachers",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/teacher?departmentId={{departmentId}}&page=1&limit=20",
-							"host": ["{{base_url}}"],
-							"path": ["teacher"],
-							"query": [
-								{
-									"key": "departmentId",
-									"value": "{{departmentId}}"
-								},
-								{
-									"key": "page",
-									"value": "1"
-								},
-								{
-									"key": "limit",
-									"value": "20"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Update Teacher",
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"designation\": \"Associate Professor\",\n  \"specialization\": \"Data Science\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/teacher/{{teacherId}}",
-							"host": ["{{base_url}}"],
-							"path": ["teacher", "{{teacherId}}"]
-						}
-					}
-				},
-				{
-					"name": "Delete Teacher",
-					"request": {
-						"method": "DELETE",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/teacher/{{teacherId}}",
-							"host": ["{{base_url}}"],
-							"path": ["teacher", "{{teacherId}}"]
-						}
-					}
-				},
-				{
-					"name": "Get Teacher Statistics",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/teacher/stats",
-							"host": ["{{base_url}}"],
-							"path": ["teacher", "stats"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "🏛️ Organization Management",
-			"description": "Manage departments, batches, and organizational structure",
-			"item": [
-				{
-					"name": "Create Department",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"name\": \"Computer Science & Engineering\",\n  \"code\": \"CSE\",\n  \"description\": \"Department of Computer Science and Engineering\",\n  \"headOfDepartment\": \"teacher-id-here\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/organization/departments",
-							"host": ["{{base_url}}"],
-							"path": ["organization", "departments"]
-						}
-					}
-				},
-				{
-					"name": "Get All Departments",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/organization/departments",
-							"host": ["{{base_url}}"],
-							"path": ["organization", "departments"]
-						}
-					}
-				},
-				{
-					"name": "Update Department",
-					"request": {
-						"method": "PATCH",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"name\": \"Computer Science & AI\",\n  \"description\": \"Updated department description\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/organization/departments/{{departmentId}}",
-							"host": ["{{base_url}}"],
-							"path": ["organization", "departments", "{{departmentId}}"]
-						}
-					}
-				},
-				{
-					"name": "Create Batch",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"name\": \"2024-2028\",\n  \"departmentId\": \"dept-id-here\",\n  \"startYear\": 2024,\n  \"endYear\": 2028,\n  \"strength\": 60\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/organization/batches",
-							"host": ["{{base_url}}"],
-							"path": ["organization", "batches"]
-						}
-					}
-				},
-				{
-					"name": "Get All Batches",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/organization/batches?departmentId={{departmentId}}",
-							"host": ["{{base_url}}"],
-							"path": ["organization", "batches"],
-							"query": [
-								{
-									"key": "departmentId",
-									"value": "{{departmentId}}"
-								}
-							]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "📚 Course Management",
-			"description": "Manage courses, subjects, enrollments, and schedules",
-			"item": [
-				{
-					"name": "Create Course",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"code\": \"CSE101\",\n  \"name\": \"Introduction to Programming\",\n  \"credits\": 3,\n  \"subjectId\": \"subject-id-here\",\n  \"departmentId\": \"dept-id-here\",\n  \"teacherId\": \"teacher-id-here\",\n  \"batchId\": \"batch-id-here\",\n  \"semester\": 1\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/course/courses",
-							"host": ["{{base_url}}"],
-							"path": ["course", "courses"]
-						}
-					}
-				},
-				{
-					"name": "Get All Courses",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/course/courses?departmentId={{departmentId}}&batchId={{batchId}}&page=1&limit=20",
-							"host": ["{{base_url}}"],
-							"path": ["course", "courses"],
-							"query": [
-								{
-									"key": "departmentId",
-									"value": "{{departmentId}}"
-								},
-								{
-									"key": "batchId",
-									"value": "{{batchId}}"
-								},
-								{
-									"key": "page",
-									"value": "1"
-								},
-								{
-									"key": "limit",
-									"value": "20"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Update Course",
-					"request": {
-						"method": "PATCH",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"name\": \"Introduction to Programming (Updated)\",\n  \"credits\": 4\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/course/courses/{{courseId}}",
-							"host": ["{{base_url}}"],
-							"path": ["course", "courses", "{{courseId}}"]
-						}
-					}
-				},
-				{
-					"name": "Bulk Enroll Students",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"courseId\": \"course-id-here\",\n  \"studentIds\": [\"student-id-1\", \"student-id-2\", \"student-id-3\"]\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/course/enrollments/bulk",
-							"host": ["{{base_url}}"],
-							"path": ["course", "enrollments", "bulk"]
-						}
-					}
-				},
-				{
-					"name": "Create Class Schedule",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"courseId\": \"course-id-here\",\n  \"teacherId\": \"teacher-id-here\",\n  \"dayOfWeek\": \"MONDAY\",\n  \"startTime\": \"09:00\",\n  \"endTime\": \"10:30\",\n  \"roomNumber\": \"Room 101\",\n  \"semester\": 1\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/teacher/{{teacherId}}/schedules",
-							"host": ["{{base_url}}"],
-							"path": ["teacher", "{{teacherId}}", "schedules"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "📊 Attendance Management",
-			"description": "System-wide attendance management and operations",
-			"item": [
-				{
-					"name": "Get All Attendance Records",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/attendance?courseId={{courseId}}&date=2024-12-19&page=1&limit=50",
-							"host": ["{{base_url}}"],
-							"path": ["attendance"],
-							"query": [
-								{
-									"key": "courseId",
-									"value": "{{courseId}}"
-								},
-								{
-									"key": "date",
-									"value": "2024-12-19"
-								},
-								{
-									"key": "page",
-									"value": "1"
-								},
-								{
-									"key": "limit",
-									"value": "50"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Update Attendance Record",
-					"request": {
-						"method": "PATCH",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"status\": \"PRESENT\",\n  \"remarks\": \"Attendance corrected after verification\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/attendance/{{attendanceId}}",
-							"host": ["{{base_url}}"],
-							"path": ["attendance", "{{attendanceId}}"]
-						}
-					}
-				},
-				{
-					"name": "Bulk Update Attendance",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"attendanceUpdates\": [\n    {\n      \"attendanceId\": \"attendance-id-1\",\n      \"status\": \"PRESENT\"\n    },\n    {\n      \"attendanceId\": \"attendance-id-2\",\n      \"status\": \"ABSENT\"\n    }\n  ]\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/attendance/bulk-update",
-							"host": ["{{base_url}}"],
-							"path": ["attendance", "bulk-update"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "📄 Leave Management",
-			"description": "System-wide leave management and bulk operations",
-			"item": [
-				{
-					"name": "Get All Leave Requests",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/leave?status=PENDING&startDate=2024-12-01&endDate=2024-12-31&page=1&limit=20",
-							"host": ["{{base_url}}"],
-							"path": ["leave"],
-							"query": [
-								{
-									"key": "status",
-									"value": "PENDING"
-								},
-								{
-									"key": "startDate",
-									"value": "2024-12-01"
-								},
-								{
-									"key": "endDate",
-									"value": "2024-12-31"
-								},
-								{
-									"key": "page",
-									"value": "1"
-								},
-								{
-									"key": "limit",
-									"value": "20"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Bulk Approve/Reject Leave Requests",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"leaveIds\": [\"leave-id-1\", \"leave-id-2\", \"leave-id-3\"],\n  \"status\": \"APPROVED\",\n  \"comments\": \"Bulk approved after review\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/leave/bulk-action",
-							"host": ["{{base_url}}"],
-							"path": ["leave", "bulk-action"]
-						}
-					}
-				},
-				{
-					"name": "Get Leave Statistics",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/leave/stats?departmentId={{departmentId}}&batchId={{batchId}}&startDate=2024-01-01&endDate=2024-12-31",
-							"host": ["{{base_url}}"],
-							"path": ["leave", "stats"],
-							"query": [
-								{
-									"key": "departmentId",
-									"value": "{{departmentId}}"
-								},
-								{
-									"key": "batchId",
-									"value": "{{batchId}}"
-								},
-								{
-									"key": "startDate",
-									"value": "2024-01-01"
-								},
-								{
-									"key": "endDate",
-									"value": "2024-12-31"
-								}
-							]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "🔔 Notification Management",
-			"description": "Bulk notification sending and management",
-			"item": [
-				{
-					"name": "Send Bulk Notification",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"title\": \"Holiday Notification\",\n  \"message\": \"College will remain closed on 25th December\",\n  \"type\": \"GENERAL\",\n  \"recipientType\": \"ALL\",\n  \"departmentIds\": [\"dept-id-1\", \"dept-id-2\"],\n  \"batchIds\": [\"batch-id-1\"]\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/notification/send-bulk",
-							"host": ["{{base_url}}"],
-							"path": ["notification", "send-bulk"]
-						}
-					}
-				},
-				{
-					"name": "Create Notification Template",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"name\": \"Exam Reminder\",\n  \"subject\": \"Exam Schedule Notification\",\n  \"body\": \"Dear {studentName}, your {examName} is scheduled on {examDate} at {examTime}. Please be prepared.\",\n  \"variables\": [\"studentName\", \"examName\", \"examDate\", \"examTime\"]\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/notification/templates",
-							"host": ["{{base_url}}"],
-							"path": ["notification", "templates"]
-						}
-					}
-				},
-				{
-					"name": "Get All Notifications",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/notification?page=1&limit=50&type=GENERAL",
-							"host": ["{{base_url}}"],
-							"path": ["notification"],
-							"query": [
-								{
-									"key": "page",
-									"value": "1"
-								},
-								{
-									"key": "limit",
-									"value": "50"
-								},
-								{
-									"key": "type",
-									"value": "GENERAL"
-								}
-							]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "⚙️ System Settings",
-			"description": "System configuration and settings management",
-			"item": [
-				{
-					"name": "Get System Settings",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/settings",
-							"host": ["{{base_url}}"],
-							"path": ["settings"]
-						}
-					}
-				},
-				{
-					"name": "Update System Settings",
-					"request": {
-						"method": "PATCH",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"attendanceThreshold\": 75,\n  \"qrCodeDuration\": 300,\n  \"maxLeaveDaysPerMonth\": 3,\n  \"autoApproveLeave\": false\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/settings",
-							"host": ["{{base_url}}"],
-							"path": ["settings"]
-						}
-					}
-				},
-				{
-					"name": "Get Email/SMTP Settings",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/settings/email",
-							"host": ["{{base_url}}"],
-							"path": ["settings", "email"]
-						}
-					}
-				},
-				{
-					"name": "Update Email Settings",
-					"request": {
-						"method": "PATCH",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"smtpHost\": \"smtp.gmail.com\",\n  \"smtpPort\": 587,\n  \"smtpUser\": \"noreply@attendflow.com\",\n  \"smtpSecure\": true\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/settings/email",
-							"host": ["{{base_url}}"],
-							"path": ["settings", "email"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "📤 Import/Export",
-			"description": "Bulk import and export operations",
-			"item": [
-				{
-					"name": "Import Students from CSV",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "multipart/form-data"
-							}
-						],
-						"body": {
-							"mode": "formdata",
-							"formdata": [
-								{
-									"key": "file",
-									"type": "file",
-									"src": "/path/to/students.csv"
-								},
-								{
-									"key": "departmentId",
-									"value": "{{departmentId}}"
-								},
-								{
-									"key": "batchId",
-									"value": "{{batchId}}"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{base_url}}/import/students",
-							"host": ["{{base_url}}"],
-							"path": ["import", "students"]
-						}
-					}
-				},
-				{
-					"name": "Import Teachers from CSV",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "multipart/form-data"
-							}
-						],
-						"body": {
-							"mode": "formdata",
-							"formdata": [
-								{
-									"key": "file",
-									"type": "file",
-									"src": "/path/to/teachers.csv"
-								},
-								{
-									"key": "departmentId",
-									"value": "{{departmentId}}"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{base_url}}/import/teachers",
-							"host": ["{{base_url}}"],
-							"path": ["import", "teachers"]
-						}
-					}
-				},
-				{
-					"name": "Export Attendance Report",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/import/export/attendance?format=csv&startDate=2024-01-01&endDate=2024-12-31&departmentId={{departmentId}}",
-							"host": ["{{base_url}}"],
-							"path": ["import", "export", "attendance"],
-							"query": [
-								{
-									"key": "format",
-									"value": "csv"
-								},
-								{
-									"key": "startDate",
-									"value": "2024-01-01"
-								},
-								{
-									"key": "endDate",
-									"value": "2024-12-31"
-								},
-								{
-									"key": "departmentId",
-									"value": "{{departmentId}}"
-								}
-							]
-						}
-					}
-				}
-			]
-		}
-	],
-	"event": [
-		{
-			"listen": "prerequest",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					""
-				]
-			}
-		},
-		{
-			"listen": "test",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					""
-				]
-			}
-		}
-	]
+  "info": {
+    "_postman_id": "dashboard-app-collection",
+    "name": "AttendFlow - Dashboard App (Admin Panel)",
+    "description": "API collection for AttendFlow Dashboard Application - Admin Panel. This collection contains management, administrative, and analytical endpoints used by Admins and Teachers with enhanced permissions. Updated to match actual server implementation.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "role",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "teacherId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "studentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "courseId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "departmentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "batchId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "semesterId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "subjectId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "leaveId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "notificationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tokenId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Authentication",
+      "description": "Authentication endpoints for Dashboard App access",
+      "item": [
+        {
+          "name": "Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@attendflow.com\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('jwt_token', response.data.accessToken);",
+                  "    pm.collectionVariables.set('user_id', response.data.user.id);",
+                  "    pm.collectionVariables.set('role', response.data.user.role);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Teacher Login (Enhanced Access)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"teacher@attendflow.com\",\n  \"password\": \"teacher123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('jwt_token', response.data.accessToken);",
+                  "    pm.collectionVariables.set('user_id', response.data.user.id);",
+                  "    pm.collectionVariables.set('role', response.data.user.role);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"STUDENT\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏢 Organization Management",
+      "description": "Complete organizational structure management - Departments, Batches, Semesters, and Subjects",
+      "item": [
+        {
+          "name": "📋 Department Management",
+          "description": "CRUD operations for departments",
+          "item": [
+            {
+              "name": "Create Department",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Computer Science\",\n  \"code\": \"CS\",\n  \"description\": \"Department of Computer Science and Engineering\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/organization/departments",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "departments"]
+                }
+              }
+            },
+            {
+              "name": "Get All Departments",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/organization/departments?page=1&limit=20&search=computer",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "departments"],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    },
+                    {
+                      "key": "search",
+                      "value": "computer"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Single Department",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/organization/departments/{{departmentId}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "departments", "{{departmentId}}"]
+                }
+              }
+            },
+            {
+              "name": "Update Department",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Computer Science & Engineering\",\n  \"description\": \"Updated department description\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/organization/departments/{{departmentId}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "departments", "{{departmentId}}"]
+                }
+              }
+            },
+            {
+              "name": "Delete Department",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/organization/departments/{{departmentId}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "departments", "{{departmentId}}"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "📚 Semester Management",
+          "description": "CRUD operations for semesters",
+          "item": [
+            {
+              "name": "Create Semester",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Fall 2024\",\n  \"year\": 2024,\n  \"departmentId\": \"{{departmentId}}\",\n  \"startDate\": \"2024-09-01\",\n  \"endDate\": \"2024-12-31\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/organization/semesters",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "semesters"]
+                }
+              }
+            },
+            {
+              "name": "Get All Semesters",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/organization/semesters?departmentId={{departmentId}}&page=1&limit=20",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "semesters"],
+                  "query": [
+                    {
+                      "key": "departmentId",
+                      "value": "{{departmentId}}"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Single Semester",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/organization/semesters/{{semesterId}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "semesters", "{{semesterId}}"]
+                }
+              }
+            },
+            {
+              "name": "Update Semester",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Fall 2024 - Updated\",\n  \"endDate\": \"2025-01-15\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/organization/semesters/{{semesterId}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "semesters", "{{semesterId}}"]
+                }
+              }
+            },
+            {
+              "name": "Delete Semester",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/organization/semesters/{{semesterId}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "semesters", "{{semesterId}}"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "🎯 Batch Management",
+          "description": "CRUD operations for batches",
+          "item": [
+            {
+              "name": "Create Batch",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Batch 2024-2028\",\n  \"year\": 2024,\n  \"description\": \"Undergraduate batch 2024-2028\",\n  \"startDate\": \"2024-09-01\",\n  \"endDate\": \"2028-06-30\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/organization/batches",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "batches"]
+                }
+              }
+            },
+            {
+              "name": "Get All Batches",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/organization/batches?year=2024&page=1&limit=20",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "batches"],
+                  "query": [
+                    {
+                      "key": "year",
+                      "value": "2024"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Single Batch",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/organization/batches/{{batchId}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "batches", "{{batchId}}"]
+                }
+              }
+            },
+            {
+              "name": "Update Batch",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Batch 2024-2028 - Updated\",\n  \"description\": \"Updated batch description\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/organization/batches/{{batchId}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "batches", "{{batchId}}"]
+                }
+              }
+            },
+            {
+              "name": "Delete Batch",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/organization/batches/{{batchId}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "batches", "{{batchId}}"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "📖 Subject Management",
+          "description": "CRUD operations for subjects",
+          "item": [
+            {
+              "name": "Create Subject",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Data Structures\",\n  \"code\": \"DS101\",\n  \"description\": \"Introduction to Data Structures and Algorithms\",\n  \"credits\": 3,\n  \"departmentId\": \"{{departmentId}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/organization/subjects",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "subjects"]
+                }
+              }
+            },
+            {
+              "name": "Get All Subjects",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/organization/subjects?departmentId={{departmentId}}&page=1&limit=20",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "subjects"],
+                  "query": [
+                    {
+                      "key": "departmentId",
+                      "value": "{{departmentId}}"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Single Subject",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/organization/subjects/{{subjectId}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "subjects", "{{subjectId}}"]
+                }
+              }
+            },
+            {
+              "name": "Update Subject",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Data Structures & Algorithms\",\n  \"credits\": 4\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/organization/subjects/{{subjectId}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "subjects", "{{subjectId}}"]
+                }
+              }
+            },
+            {
+              "name": "Delete Subject",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/organization/subjects/{{subjectId}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["organization", "subjects", "{{subjectId}}"]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "👥 User Management",
+      "description": "Complete CRUD operations for user management",
+      "item": [
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"STUDENT\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/user/create-user",
+              "host": ["{{base_url}}"],
+              "path": ["user", "create-user"]
+            }
+          }
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/user?page=1&limit=20&role=STUDENT&search=john",
+              "host": ["{{base_url}}"],
+              "path": ["user"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "role",
+                  "value": "STUDENT"
+                },
+                {
+                  "key": "search",
+                  "value": "john"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Smith\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/user/{{userId}}",
+              "host": ["{{base_url}}"],
+              "path": ["user", "{{userId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/user/{{userId}}",
+              "host": ["{{base_url}}"],
+              "path": ["user", "{{userId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎓 Student Management",
+      "description": "Complete student management operations",
+      "item": [
+        {
+          "name": "Create Student (Updated - Only Required Fields)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/student/create-student",
+              "host": ["{{base_url}}"],
+              "path": ["student", "create-student"]
+            }
+          }
+        },
+        {
+          "name": "Get All Students",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/student?departmentId={{departmentId}}&batchId={{batchId}}&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["student"],
+              "query": [
+                {
+                  "key": "departmentId",
+                  "value": "{{departmentId}}"
+                },
+                {
+                  "key": "batchId",
+                  "value": "{{batchId}}"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Single Student",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/student/{{studentId}}",
+              "host": ["{{base_url}}"],
+              "path": ["student", "{{studentId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Student",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"semester\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/student/{{studentId}}",
+              "host": ["{{base_url}}"],
+              "path": ["student", "{{studentId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Student",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/student/{{studentId}}",
+              "host": ["{{base_url}}"],
+              "path": ["student", "{{studentId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Student Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/student/profile/{{studentId}}",
+              "host": ["{{base_url}}"],
+              "path": ["student", "profile", "{{studentId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Student Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Smith\",\n  \"phone\": \"+1234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/student/profile/{{studentId}}",
+              "host": ["{{base_url}}"],
+              "path": ["student", "profile", "{{studentId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Student Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/student/dashboard/{{studentId}}",
+              "host": ["{{base_url}}"],
+              "path": ["student", "dashboard", "{{studentId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Student Attendance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/student/{{studentId}}/attendance?startDate=2024-01-01&endDate=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["student", "{{studentId}}", "attendance"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2024-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-12-31"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Student Attendance Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/student/{{studentId}}/attendance-summary",
+              "host": ["{{base_url}}"],
+              "path": ["student", "{{studentId}}", "attendance-summary"]
+            }
+          }
+        },
+        {
+          "name": "Submit Leave Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startDate\": \"2024-12-20\",\n  \"endDate\": \"2024-12-22\",\n  \"reason\": \"Medical Leave\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/student/{{studentId}}/leave-request",
+              "host": ["{{base_url}}"],
+              "path": ["student", "{{studentId}}", "leave-request"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👨‍🏫 Teacher Management",
+      "description": "Complete teacher management operations",
+      "item": [
+        {
+          "name": "Create Teacher (Updated - Only Required Fields)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Smith\",\n  \"email\": \"jane.smith@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teacher/",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", ""]
+            }
+          }
+        },
+        {
+          "name": "Get All Teachers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher?departmentId={{departmentId}}&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["teacher"],
+              "query": [
+                {
+                  "key": "departmentId",
+                  "value": "{{departmentId}}"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Single Teacher",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/{{teacherId}}",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{teacherId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Teacher",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"designation\": \"Associate Professor\",\n  \"specialization\": \"Data Science\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teacher/{{teacherId}}",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{teacherId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Teacher",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/{{teacherId}}",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{teacherId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Teacher Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/stats",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "stats"]
+            }
+          }
+        },
+        {
+          "name": "Get Teacher Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/{{teacherId}}/dashboard",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{teacherId}}", "dashboard"]
+            }
+          }
+        },
+        {
+          "name": "Get Teacher Profile by User ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/user/{{user_id}}/profile",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "user", "{{user_id}}", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Assign Teacher to Department",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"departmentId\": \"{{departmentId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teacher/{{teacherId}}/assign-department",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{teacherId}}", "assign-department"]
+            }
+          }
+        },
+        {
+          "name": "Remove Teacher from Department",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/{{teacherId}}/remove-department",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{teacherId}}", "remove-department"]
+            }
+          }
+        },
+        {
+          "name": "Get Unassigned Teachers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/unassigned",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "unassigned"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔗 Assignment Management",
+      "description": "Decoupled assignment operations - Industry Standard: Create entities independently, assign relationships later",
+      "item": [
+        {
+          "name": "Assign Teacher to Department",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"teacherId\": \"{{teacherId}}\",\n  \"departmentId\": \"{{departmentId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/assignments/teacher-to-department",
+              "host": ["{{base_url}}"],
+              "path": ["assignments", "teacher-to-department"]
+            }
+          }
+        },
+        {
+          "name": "Unassign Teacher from Department",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/assignments/teacher-from-department/{{teacherId}}",
+              "host": ["{{base_url}}"],
+              "path": ["assignments", "teacher-from-department", "{{teacherId}}"]
+            }
+          }
+        },
+        {
+          "name": "Assign Student to Batch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"{{studentId}}\",\n  \"batchId\": \"{{batchId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/assignments/student-to-batch",
+              "host": ["{{base_url}}"],
+              "path": ["assignments", "student-to-batch"]
+            }
+          }
+        },
+        {
+          "name": "Assign Student to Department",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"{{studentId}}\",\n  \"departmentId\": \"{{departmentId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/assignments/student-to-department",
+              "host": ["{{base_url}}"],
+              "path": ["assignments", "student-to-department"]
+            }
+          }
+        },
+        {
+          "name": "Assign Teacher to Course",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"teacherId\": \"{{teacherId}}\",\n  \"courseId\": \"{{courseId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/assignments/teacher-to-course",
+              "host": ["{{base_url}}"],
+              "path": ["assignments", "teacher-to-course"]
+            }
+          }
+        },
+        {
+          "name": "Assign Course to Department",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"departmentId\": \"{{departmentId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/assignments/course-to-department",
+              "host": ["{{base_url}}"],
+              "path": ["assignments", "course-to-department"]
+            }
+          }
+        },
+        {
+          "name": "Assign Course to Batch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"batchId\": \"{{batchId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/assignments/course-to-batch",
+              "host": ["{{base_url}}"],
+              "path": ["assignments", "course-to-batch"]
+            }
+          }
+        },
+        {
+          "name": "Enroll Student in Course",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"{{studentId}}\",\n  \"courseId\": \"{{courseId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/assignments/student-to-course",
+              "host": ["{{base_url}}"],
+              "path": ["assignments", "student-to-course"]
+            }
+          }
+        },
+        {
+          "name": "Unenroll Student from Course",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/assignments/student-from-course/{{studentId}}/{{courseId}}",
+              "host": ["{{base_url}}"],
+              "path": ["assignments", "student-from-course", "{{studentId}}", "{{courseId}}"]
+            }
+          }
+        },
+        {
+          "name": "Assign Department Head",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"teacherId\": \"{{teacherId}}\",\n  \"departmentId\": \"{{departmentId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/assignments/department-head",
+              "host": ["{{base_url}}"],
+              "path": ["assignments", "department-head"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Attendance Management",
+      "description": "System-wide attendance management and operations",
+      "item": [
+        {
+          "name": "Get All Attendance Records",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/attendance?courseId={{courseId}}&date=2024-12-19&page=1&limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["attendance"],
+              "query": [
+                {
+                  "key": "courseId",
+                  "value": "{{courseId}}"
+                },
+                {
+                  "key": "date",
+                  "value": "2024-12-19"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark Attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"date\": \"2024-12-19T10:00:00Z\",\n  \"attendanceRecords\": [\n    {\n      \"studentId\": \"student-id-1\",\n      \"status\": \"PRESENT\"\n    },\n    {\n      \"studentId\": \"student-id-2\",\n      \"status\": \"ABSENT\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teacher/{{teacherId}}/attendance/mark",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{teacherId}}", "attendance", "mark"]
+            }
+          }
+        },
+        {
+          "name": "Bulk Mark Attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"date\": \"2024-12-19T10:00:00Z\",\n  \"attendances\": [\n    {\n      \"studentId\": \"student-id-1\",\n      \"status\": \"PRESENT\"\n    },\n    {\n      \"studentId\": \"student-id-2\",\n      \"status\": \"ABSENT\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teacher/{{teacherId}}/attendance/bulk",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{teacherId}}", "attendance", "bulk"]
+            }
+          }
+        },
+        {
+          "name": "Get Course Attendance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/{{teacherId}}/courses/{{courseId}}/attendance",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{teacherId}}", "courses", "{{courseId}}", "attendance"]
+            }
+          }
+        },
+        {
+          "name": "Get Course Attendance Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/{{teacherId}}/courses/{{courseId}}/attendance/summary",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{teacherId}}", "courses", "{{courseId}}", "attendance", "summary"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📄 Leave Management",
+      "description": "System-wide leave management and operations",
+      "item": [
+        {
+          "name": "Get All Leave Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/leave?status=PENDING&startDate=2024-12-01&endDate=2024-12-31&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["leave"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                },
+                {
+                  "key": "startDate",
+                  "value": "2024-12-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-12-31"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Pending Leave Requests for Teacher",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/{{teacherId}}/leaves/pending",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{teacherId}}", "leaves", "pending"]
+            }
+          }
+        },
+        {
+          "name": "Approve/Reject Leave Request",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"APPROVED\",\n  \"rejectionReason\": \"Optional rejection reason\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teacher/{{teacherId}}/leaves/{{leaveId}}/approve",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{teacherId}}", "leaves", "{{leaveId}}", "approve"]
+            }
+          }
+        },
+        {
+          "name": "Get Processed Leave Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/{{teacherId}}/leaves/processed",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{teacherId}}", "leaves", "processed"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📱 QR Code Management",
+      "description": "QR code generation and validation for attendance",
+      "item": [
+        {
+          "name": "Generate QR Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"teacherId\": \"{{teacherId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/qr/generate",
+              "host": ["{{base_url}}"],
+              "path": ["qr", "generate"]
+            }
+          }
+        },
+        {
+          "name": "Validate QR Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"qr-token-here\",\n  \"userId\": \"{{user_id}}\",\n  \"studentId\": \"{{studentId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/qr/validate",
+              "host": ["{{base_url}}"],
+              "path": ["qr", "validate"]
+            }
+          }
+        },
+        {
+          "name": "Get All QR Tokens",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/qr?courseId={{courseId}}&teacherId={{teacherId}}&status=ACTIVE&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["qr"],
+              "query": [
+                {
+                  "key": "courseId",
+                  "value": "{{courseId}}"
+                },
+                {
+                  "key": "teacherId",
+                  "value": "{{teacherId}}"
+                },
+                {
+                  "key": "status",
+                  "value": "ACTIVE"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get QR Check-ins",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/qr/check-ins?tokenId={{tokenId}}&studentId={{studentId}}&page=1&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["qr", "check-ins"],
+              "query": [
+                {
+                  "key": "tokenId",
+                  "value": "{{tokenId}}"
+                },
+                {
+                  "key": "studentId",
+                  "value": "{{studentId}}"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get QR Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/qr/statistics?courseId={{courseId}}&teacherId={{teacherId}}&startDate=2024-12-01&endDate=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["qr", "statistics"],
+              "query": [
+                {
+                  "key": "courseId",
+                  "value": "{{courseId}}"
+                },
+                {
+                  "key": "teacherId",
+                  "value": "{{teacherId}}"
+                },
+                {
+                  "key": "startDate",
+                  "value": "2024-12-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-12-31"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📢 Notification Management",
+      "description": "Notification sending and management",
+      "item": [
+        {
+          "name": "Get All Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notification?page=1&limit=50&type=GENERAL",
+              "host": ["{{base_url}}"],
+              "path": ["notification"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "type",
+                  "value": "GENERAL"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Notifications for User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notification?userId={{user_id}}&page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["notification"],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "{{user_id}}"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Single Notification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notification/{{notificationId}}",
+              "host": ["{{base_url}}"],
+              "path": ["notification", "{{notificationId}}"]
+            }
+          }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isRead\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/notification/{{notificationId}}",
+              "host": ["{{base_url}}"],
+              "path": ["notification", "{{notificationId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "⚙️ System Settings",
+      "description": "System configuration and settings management",
+      "item": [
+        {
+          "name": "Get System Settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/settings",
+              "host": ["{{base_url}}"],
+              "path": ["settings"]
+            }
+          }
+        },
+        {
+          "name": "Update System Settings",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attendanceThreshold\": 75,\n  \"qrCodeDuration\": 300\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/settings",
+              "host": ["{{base_url}}"],
+              "path": ["settings"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    }
+  ]
 }

@@ -1,522 +1,747 @@
 {
-	"info": {
-		"_postman_id": "frontend-app-collection",
-		"name": "AttendFlow - Frontend App (User Portal)",
-		"description": "API collection for AttendFlow Frontend Application - User Portal. This collection contains endpoints used by Students, Teachers, and Admins for daily operations.",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-	},
-	"auth": {
-		"type": "bearer",
-		"bearer": [
-			{
-				"key": "token",
-				"value": "{{jwt_token}}",
-				"type": "string"
-			}
-		]
-	},
-	"variable": [
-		{
-			"key": "base_url",
-			"value": "http://localhost:5000/api/v1",
-			"type": "string"
-		},
-		{
-			"key": "jwt_token",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "user_id",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "role",
-			"value": "",
-			"type": "string"
-		}
-	],
-	"item": [
-		{
-			"name": "🔐 Authentication",
-			"description": "Authentication endpoints for all user roles",
-			"item": [
-				{
-					"name": "Login (All Roles)",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/auth/login",
-							"host": ["{{base_url}}"],
-							"path": ["auth", "login"]
-						}
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    const response = pm.response.json();",
-									"    pm.collectionVariables.set('jwt_token', response.data.accessToken);",
-									"    pm.collectionVariables.set('user_id', response.data.user.id);",
-									"    pm.collectionVariables.set('role', response.data.user.role);",
-									"}"
-								]
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "🎓 Student Features",
-			"description": "Endpoints exclusively used by Students in the Frontend App",
-			"item": [
-				{
-					"name": "Get Student Dashboard",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/student/dashboard/{{user_id}}",
-							"host": ["{{base_url}}"],
-							"path": ["student", "dashboard", "{{user_id}}"]
-						}
-					}
-				},
-				{
-					"name": "Get Student Profile",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/student/profile/{{user_id}}",
-							"host": ["{{base_url}}"],
-							"path": ["student", "profile", "{{user_id}}"]
-						}
-					}
-				},
-				{
-					"name": "Update Student Profile",
-					"request": {
-						"method": "PATCH",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"phone\": \"+1234567890\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/student/profile/{{user_id}}",
-							"host": ["{{base_url}}"],
-							"path": ["student", "profile", "{{user_id}}"]
-						}
-					}
-				},
-				{
-					"name": "Get Attendance Records",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/student/{{user_id}}/attendance?startDate=2024-01-01&endDate=2024-12-31",
-							"host": ["{{base_url}}"],
-							"path": ["student", "{{user_id}}", "attendance"],
-							"query": [
-								{
-									"key": "startDate",
-									"value": "2024-01-01"
-								},
-								{
-									"key": "endDate",
-									"value": "2024-12-31"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Get Attendance Summary",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/student/{{user_id}}/attendance-summary",
-							"host": ["{{base_url}}"],
-							"path": ["student", "{{user_id}}", "attendance-summary"]
-						}
-					}
-				},
-				{
-					"name": "Submit Leave Request",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"reason\": \"Medical Leave\",\n  \"startDate\": \"2024-12-20\",\n  \"endDate\": \"2024-12-22\",\n  \"description\": \"Doctor appointment\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/student/{{user_id}}/leave-request",
-							"host": ["{{base_url}}"],
-							"path": ["student", "{{user_id}}", "leave-request"]
-						}
-					}
-				},
-				{
-					"name": "QR Check-In",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"qrCode\": \"generated-qr-code-here\",\n  \"studentId\": \"{{user_id}}\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/qr/validate",
-							"host": ["{{base_url}}"],
-							"path": ["qr", "validate"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "👨‍🏫 Teacher Features",
-			"description": "Endpoints used by Teachers for daily teaching operations",
-			"item": [
-				{
-					"name": "Get Teacher Dashboard",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/teacher/{{user_id}}/dashboard",
-							"host": ["{{base_url}}"],
-							"path": ["teacher", "{{user_id}}", "dashboard"]
-						}
-					}
-				},
-				{
-					"name": "Get Teacher Profile",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/teacher/user/{{user_id}}/profile",
-							"host": ["{{base_url}}"],
-							"path": ["teacher", "user", "{{user_id}}", "profile"]
-						}
-					}
-				},
-				{
-					"name": "Mark Attendance",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"courseId\": \"course-id-here\",\n  \"date\": \"2024-12-19\",\n  \"attendanceRecords\": [\n    {\n      \"studentId\": \"student-id-1\",\n      \"status\": \"PRESENT\"\n    },\n    {\n      \"studentId\": \"student-id-2\",\n      \"status\": \"ABSENT\"\n    }\n  ]\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/teacher/{{user_id}}/attendance/mark",
-							"host": ["{{base_url}}"],
-							"path": ["teacher", "{{user_id}}", "attendance", "mark"]
-						}
-					}
-				},
-				{
-					"name": "Bulk Mark Attendance",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"courseId\": \"course-id-here\",\n  \"date\": \"2024-12-19\",\n  \"status\": \"PRESENT\",\n  \"studentIds\": [\"student-id-1\", \"student-id-2\", \"student-id-3\"]\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/teacher/{{user_id}}/attendance/bulk",
-							"host": ["{{base_url}}"],
-							"path": ["teacher", "{{user_id}}", "attendance", "bulk"]
-						}
-					}
-				},
-				{
-					"name": "Generate QR Code",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"courseId\": \"course-id-here\",\n  \"duration\": 300,\n  \"teacherId\": \"{{user_id}}\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/qr/generate",
-							"host": ["{{base_url}}"],
-							"path": ["qr", "generate"]
-						}
-					}
-				},
-				{
-					"name": "Get Pending Leave Requests",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/teacher/{{user_id}}/leaves/pending",
-							"host": ["{{base_url}}"],
-							"path": ["teacher", "{{user_id}}", "leaves", "pending"]
-						}
-					}
-				},
-				{
-					"name": "Approve/Reject Leave Request",
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"status\": \"APPROVED\",\n  \"comments\": \"Approved due to valid reason\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/teacher/{{user_id}}/leaves/{{leaveId}}/approve",
-							"host": ["{{base_url}}"],
-							"path": ["teacher", "{{user_id}}", "leaves", "{{leaveId}}", "approve"]
-						}
-					}
-				},
-				{
-					"name": "Get Today's Schedule",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/teacher/{{user_id}}/schedules/today",
-							"host": ["{{base_url}}"],
-							"path": ["teacher", "{{user_id}}", "schedules", "today"]
-						}
-					}
-				},
-				{
-					"name": "Get Teacher Schedules",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/teacher/{{user_id}}/schedules?startDate=2024-12-01&endDate=2024-12-31",
-							"host": ["{{base_url}}"],
-							"path": ["teacher", "{{user_id}}", "schedules"],
-							"query": [
-								{
-									"key": "startDate",
-									"value": "2024-12-01"
-								},
-								{
-									"key": "endDate",
-									"value": "2024-12-31"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Get Course Attendance",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/teacher/{{user_id}}/courses/{{courseId}}/attendance",
-							"host": ["{{base_url}}"],
-							"path": ["teacher", "{{user_id}}", "courses", "{{courseId}}", "attendance"]
-						}
-					}
-				},
-				{
-					"name": "Get Course Attendance Summary",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/teacher/{{user_id}}/courses/{{courseId}}/attendance/summary",
-							"host": ["{{base_url}}"],
-							"path": ["teacher", "{{user_id}}", "courses", "{{courseId}}", "attendance", "summary"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "👨‍💼 Admin Basic Features",
-			"description": "Basic Admin features available in Frontend App (overview only)",
-			"item": [
-				{
-					"name": "Admin Login",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"email\": \"admin@attendflow.com\",\n  \"password\": \"admin123\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/admin/auth/login",
-							"host": ["{{base_url}}"],
-							"path": ["admin", "auth", "login"]
-						}
-					},
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    const response = pm.response.json();",
-									"    pm.collectionVariables.set('jwt_token', response.data.accessToken);",
-									"    pm.collectionVariables.set('user_id', response.data.user.id);",
-									"    pm.collectionVariables.set('role', response.data.user.role);",
-									"}"
-								]
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"name": "📢 Common Features",
-			"description": "Endpoints used by multiple roles in the Frontend App",
-			"item": [
-				{
-					"name": "Get Notifications",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/notification?userId={{user_id}}&page=1&limit=10",
-							"host": ["{{base_url}}"],
-							"path": ["notification"],
-							"query": [
-								{
-									"key": "userId",
-									"value": "{{user_id}}"
-								},
-								{
-									"key": "page",
-									"value": "1"
-								},
-								{
-									"key": "limit",
-									"value": "10"
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Mark Notification as Read",
-					"request": {
-						"method": "PATCH",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"isRead\": true\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/notification/{{notificationId}}",
-							"host": ["{{base_url}}"],
-							"path": ["notification", "{{notificationId}}"]
-						}
-					}
-				},
-				{
-					"name": "Get Single Notification",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/notification/{{notificationId}}",
-							"host": ["{{base_url}}"],
-							"path": ["notification", "{{notificationId}}"]
-						}
-					}
-				}
-			]
-		}
-	],
-	"event": [
-		{
-			"listen": "prerequest",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					""
-				]
-			}
-		},
-		{
-			"listen": "test",
-			"script": {
-				"type": "text/javascript",
-				"exec": [
-					""
-				]
-			}
-		}
-	]
+  "info": {
+    "_postman_id": "frontend-app-collection",
+    "name": "AttendFlow - Frontend App (User Portal)",
+    "description": "API collection for AttendFlow Frontend Application - User Portal. This collection contains endpoints used by Students, Teachers, and Admins for daily operations. Updated to match actual server implementation.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "role",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "teacherId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "studentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "courseId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "departmentId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "batchId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Authentication",
+      "description": "Authentication endpoints for all user roles",
+      "item": [
+        {
+          "name": "Login (All Roles)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('jwt_token', response.data.accessToken);",
+                  "    pm.collectionVariables.set('user_id', response.data.user.id);",
+                  "    pm.collectionVariables.set('role', response.data.user.role);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"password123\",\n  \"role\": \"STUDENT\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/forgot-password",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "forgot-password"]
+            }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"reset-token-here\",\n  \"newPassword\": \"newpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/reset-password",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "reset-password"]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"oldpassword123\",\n  \"newPassword\": \"newpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/change-password",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "change-password"]
+            }
+          }
+        },
+        {
+          "name": "Get User Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/profile",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Update User Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Smith\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/profile",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"refresh-token-here\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎓 Student Features",
+      "description": "Endpoints exclusively used by Students in the Frontend App",
+      "item": [
+        {
+          "name": "Get Student Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/student/dashboard/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["student", "dashboard", "{{user_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Student Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/student/profile/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["student", "profile", "{{user_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Student Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Smith\",\n  \"phone\": \"+1234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/student/profile/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["student", "profile", "{{user_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Attendance Records",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/student/{{user_id}}/attendance?startDate=2024-01-01&endDate=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["student", "{{user_id}}", "attendance"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2024-01-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-12-31"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Attendance Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/student/{{user_id}}/attendance-summary",
+              "host": ["{{base_url}}"],
+              "path": ["student", "{{user_id}}", "attendance-summary"]
+            }
+          }
+        },
+        {
+          "name": "Submit Leave Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startDate\": \"2024-12-20\",\n  \"endDate\": \"2024-12-22\",\n  \"reason\": \"Medical Leave\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/student/{{user_id}}/leave-request",
+              "host": ["{{base_url}}"],
+              "path": ["student", "{{user_id}}", "leave-request"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👨‍🏫 Teacher Features",
+      "description": "Endpoints used by Teachers for daily teaching operations",
+      "item": [
+        {
+          "name": "Get Teacher Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/{{user_id}}/dashboard",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{user_id}}", "dashboard"]
+            }
+          }
+        },
+        {
+          "name": "Get Teacher Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/user/{{user_id}}/profile",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "user", "{{user_id}}", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Mark Attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"date\": \"2024-12-19T10:00:00Z\",\n  \"attendanceRecords\": [\n    {\n      \"studentId\": \"student-id-1\",\n      \"status\": \"PRESENT\"\n    },\n    {\n      \"studentId\": \"student-id-2\",\n      \"status\": \"ABSENT\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teacher/{{user_id}}/attendance/mark",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{user_id}}", "attendance", "mark"]
+            }
+          }
+        },
+        {
+          "name": "Bulk Mark Attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"date\": \"2024-12-19T10:00:00Z\",\n  \"attendances\": [\n    {\n      \"studentId\": \"student-id-1\",\n      \"status\": \"PRESENT\"\n    },\n    {\n      \"studentId\": \"student-id-2\",\n      \"status\": \"ABSENT\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teacher/{{user_id}}/attendance/bulk",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{user_id}}", "attendance", "bulk"]
+            }
+          }
+        },
+        {
+          "name": "Generate QR Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"teacherId\": \"{{user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/qr/generate",
+              "host": ["{{base_url}}"],
+              "path": ["qr", "generate"]
+            }
+          }
+        },
+        {
+          "name": "Get Pending Leave Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/{{user_id}}/leaves/pending",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{user_id}}", "leaves", "pending"]
+            }
+          }
+        },
+        {
+          "name": "Approve/Reject Leave Request",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"APPROVED\",\n  \"rejectionReason\": \"Optional rejection reason\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teacher/{{user_id}}/leaves/{{leaveId}}/approve",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{user_id}}", "leaves", "{{leaveId}}", "approve"]
+            }
+          }
+        },
+        {
+          "name": "Get Today's Schedule",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/{{user_id}}/schedules/today",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{user_id}}", "schedules", "today"]
+            }
+          }
+        },
+        {
+          "name": "Get Teacher Schedules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/{{user_id}}/schedules?startDate=2024-12-01&endDate=2024-12-31",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{user_id}}", "schedules"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2024-12-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2024-12-31"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Course Attendance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/{{user_id}}/courses/{{courseId}}/attendance",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{user_id}}", "courses", "{{courseId}}", "attendance"]
+            }
+          }
+        },
+        {
+          "name": "Get Course Attendance Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/teacher/{{user_id}}/courses/{{courseId}}/attendance/summary",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{user_id}}", "courses", "{{courseId}}", "attendance", "summary"]
+            }
+          }
+        },
+        {
+          "name": "Create Class Schedule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"batchId\": \"{{batchId}}\",\n  \"dayOfWeek\": 1,\n  \"startTime\": \"09:00\",\n  \"endTime\": \"10:30\",\n  \"room\": \"Room 101\",\n  \"semester\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teacher/{{user_id}}/schedules",
+              "host": ["{{base_url}}"],
+              "path": ["teacher", "{{user_id}}", "schedules"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔗 Assignment Operations (Teacher)",
+      "description": "Assignment operations available to teachers",
+      "item": [
+        {
+          "name": "Enroll Student in Course",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"{{studentId}}\",\n  \"courseId\": \"{{courseId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/assignments/student-to-course",
+              "host": ["{{base_url}}"],
+              "path": ["assignments", "student-to-course"]
+            }
+          }
+        },
+        {
+          "name": "Unenroll Student from Course",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/assignments/student-from-course/{{studentId}}/{{courseId}}",
+              "host": ["{{base_url}}"],
+              "path": ["assignments", "student-from-course", "{{studentId}}", "{{courseId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👨‍💼 Admin Basic Features",
+      "description": "Basic Admin features available in Frontend App (overview only)",
+      "item": [
+        {
+          "name": "Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@attendflow.com\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/admin/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('jwt_token', response.data.accessToken);",
+                  "    pm.collectionVariables.set('user_id', response.data.user.id);",
+                  "    pm.collectionVariables.set('role', response.data.user.role);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "📢 Common Features",
+      "description": "Endpoints used by multiple roles in the Frontend App",
+      "item": [
+        {
+          "name": "Get Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notification?userId={{user_id}}&page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["notification"],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "{{user_id}}"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isRead\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/notification/{{notificationId}}",
+              "host": ["{{base_url}}"],
+              "path": ["notification", "{{notificationId}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Single Notification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notification/{{notificationId}}",
+              "host": ["{{base_url}}"],
+              "path": ["notification", "{{notificationId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📱 QR Code Features",
+      "description": "QR code validation and check-in for students",
+      "item": [
+        {
+          "name": "QR Check-In",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"qr-token-here\",\n  \"userId\": \"{{user_id}}\",\n  \"studentId\": \"{{studentId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/qr/validate",
+              "host": ["{{base_url}}"],
+              "path": ["qr", "validate"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    }
+  ]
 }

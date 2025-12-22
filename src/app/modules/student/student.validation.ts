@@ -1,15 +1,20 @@
 import { z } from "zod";
 
 /** Validation schema for creating Student profile */
+// INDUSTRY STANDARD: Only include fields that are actually provided during creation
+// Auto-generated fields (studentId) and optional relationships should NOT be required
 const createStudentSchema = z.object({
     body: z.object({
-        userId: z.string().min(1, 'User ID is required'),
-        studentId: z.string().min(1, 'Student ID is required'),
-        batchId: z.string().min(1, 'Batch ID is required'),
-        departmentId: z.string().min(1, 'Department ID is required'),
+        userId: z.string().min(1, 'User ID is required').optional(),
+        name: z.string().min(2, 'Name is required and must be at least 2 characters'),
+        email: z.string().email('Invalid email format').min(1, 'Email is required'), // REQUIRED for all students
+        password: z.string().min(8, 'Password must be at least 8 characters').optional(), // Optional, will use default if not provided
+        batchId: z.string().min(1, 'Batch ID is optional').optional(), // Can be assigned later
+        departmentId: z.string().min(1, 'Department ID is optional').optional(), // Can be assigned later
         semester: z.number().int().min(1).max(10).optional().default(1),
         gpa: z.number().min(0).max(4).optional().default(0.0),
         credits: z.number().int().min(0).optional().default(0),
+        // NOTE: studentId is AUTO-GENERATED and should NOT be in create form
     }),
 });
 

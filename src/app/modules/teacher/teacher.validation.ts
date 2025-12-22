@@ -1,12 +1,17 @@
 import { z } from 'zod';
 
 // Teacher profile validation schemas
+// INDUSTRY STANDARD: Only include fields that are actually provided during creation
+// Auto-generated fields (employeeId) and optional relationships (departmentId) should NOT be required
 export const createTeacherValidationSchema = z.object({
-    userId: z.string().cuid('Invalid user ID'),
-    employeeId: z.string().min(1, 'Employee ID is required'),
-    departmentId: z.string().cuid('Invalid department ID'),
+    userId: z.string().cuid('Invalid user ID').optional(),
+    name: z.string().min(2, 'Name is required and must be at least 2 characters'),
+    email: z.string().email('Invalid email format').min(1, 'Email is required'), // REQUIRED for all teachers
+    password: z.string().min(8, 'Password must be at least 8 characters').optional(), // Optional, will use default if not provided
+    departmentId: z.string().cuid('Invalid department ID').optional(), // Department can be assigned later
     designation: z.string().optional(),
     specialization: z.string().optional(),
+    // NOTE: employeeId is AUTO-GENERATED and should NOT be in create form
 });
 
 export const updateTeacherValidationSchema = z.object({
@@ -99,6 +104,18 @@ export const teacherCourseAssignmentValidationSchema = z.object({
     semester: z.number().int().min(1, 'Semester must be at least 1').optional(),
 });
 
+// Teacher department assignment validation
+export const teacherDepartmentAssignmentValidationSchema = z.object({
+    teacherId: z.string().cuid('Invalid teacher ID'),
+    departmentId: z.string().cuid('Invalid department ID'),
+});
+
+// Bulk teacher assignment validation
+export const bulkTeacherAssignmentValidationSchema = z.object({
+    teacherIds: z.array(z.string().cuid('Invalid teacher ID')).min(1, 'At least one teacher ID is required'),
+    departmentId: z.string().cuid('Invalid department ID'),
+});
+
 // Query parameter validation
 export const attendanceQueryValidationSchema = z.object({
     courseId: z.string().cuid('Invalid course ID').optional(),
@@ -175,6 +192,8 @@ export const TeacherValidation = {
     createSubject: createSubjectValidationSchema,
     updateSubject: updateSubjectValidationSchema,
     teacherCourseAssignment: teacherCourseAssignmentValidationSchema,
+    teacherDepartmentAssignment: teacherDepartmentAssignmentValidationSchema,
+    bulkTeacherAssignment: bulkTeacherAssignmentValidationSchema,
     attendanceQuery: attendanceQueryValidationSchema,
     classScheduleQuery: classScheduleQueryValidationSchema,
     leaveQuery: leaveQueryValidationSchema,

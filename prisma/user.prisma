@@ -4,7 +4,7 @@
 // Main User model
 model User {
     id           String     @id @default(cuid())
-    email        String     @unique
+    email        String     @unique // REQUIRED: Email is mandatory for all users
     username     String?    @unique
     password     String
     name         String
@@ -14,7 +14,7 @@ model User {
     phone        String?
     address      String?
     dateOfBirth  DateTime?
-    departmentId String?
+    departmentId String? // OPTIONAL: Can be assigned later
     createdAt    DateTime   @default(now())
     updatedAt    DateTime   @updatedAt
 
@@ -54,9 +54,9 @@ model User {
 model Student {
     id             String   @id @default(cuid())
     userId         String   @unique
-    studentId      String   @unique
-    batchId        String
-    departmentId   String
+    studentId      String   @unique // AUTO-GENERATED: Should not be in create forms
+    batchId        String? // OPTIONAL: Can be assigned later via assignment API
+    departmentId   String? // OPTIONAL: Can be assigned later via assignment API
     semester       Int      @default(1)
     enrollmentDate DateTime @default(now())
     gpa            Float?   @default(0.0)
@@ -67,8 +67,8 @@ model Student {
 
     // Relationships
     user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-    batch             Batch          @relation(fields: [batchId], references: [id])
-    department        Department     @relation(fields: [departmentId], references: [id])
+    batch             Batch?         @relation(fields: [batchId], references: [id])
+    department        Department?    @relation(fields: [departmentId], references: [id])
     attendanceRecords Attendance[]   @relation("StudentAttendance")
     leaveRequests     LeaveRequest[] @relation("StudentLeaveRequests")
     leaveBalance      LeaveBalance?  @relation("StudentLeaveBalance")
@@ -80,8 +80,8 @@ model Student {
 model Teacher {
     id             String   @id @default(cuid())
     userId         String   @unique
-    employeeId     String   @unique
-    departmentId   String
+    employeeId     String   @unique // AUTO-GENERATED: Should not be in create forms
+    departmentId   String? // OPTIONAL: Can be assigned later via assignment API
     designation    String?
     specialization String?
     joinDate       DateTime @default(now())
@@ -90,11 +90,12 @@ model Teacher {
     updatedAt      DateTime @updatedAt
 
     // Relationships
-    user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-    department    Department     @relation(fields: [departmentId], references: [id])
-    courses       Course[]       @relation("TeacherProfileCourses")
-    leaveRequests LeaveRequest[] @relation("TeacherLeaveRequests")
-    leaveBalance  LeaveBalance?  @relation("TeacherLeaveBalance")
+    user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+    department        Department?    @relation(fields: [departmentId], references: [id])
+    courses           Course[]       @relation("TeacherProfileCourses")
+    leaveRequests     LeaveRequest[] @relation("TeacherLeaveRequests")
+    leaveBalance      LeaveBalance?  @relation("TeacherLeaveBalance")
+    headedDepartments Department[]   @relation("DepartmentHead")
 
     @@map("teachers")
 }

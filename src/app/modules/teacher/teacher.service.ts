@@ -23,23 +23,65 @@ import {
 } from './teacher.interface';
 import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
+import { generateTeacherId, generateTeacherUserId } from '../../utils/idGenerator';
+import prisma from '../../config/prisma';
 
 // Teacher profile services
 export const createTeacherProfile = async (data: ITeacherCreate): Promise<ITeacherWithUser> => {
     try {
-        // Check if teacher profile already exists for this user
-        const existingTeacher = await TeacherModel.findByUserId(data.userId);
-        if (existingTeacher) {
-            throw new AppError(StatusCodes.CONFLICT, 'Teacher profile already exists for this user');
+        // Validate required fields
+        if (!data.email) {
+            throw new AppError(StatusCodes.BAD_REQUEST, 'Email is required for all teachers');
         }
 
-        // Check if employee ID is already taken
-        const existingEmployeeId = await TeacherModel.findByEmployeeId(data.employeeId);
-        if (existingEmployeeId) {
-            throw new AppError(StatusCodes.CONFLICT, 'Employee ID already exists');
+        // Check if email already exists
+        const existingEmail = await prisma.user.findUnique({
+            where: { email: data.email },
+        });
+
+        if (existingEmail) {
+            throw new AppError(StatusCodes.CONFLICT, 'Email already exists');
         }
 
-        return await TeacherModel.create(data) as unknown as ITeacherWithUser;
+        // Generate user ID and create user if not provided
+        let userId = data.userId;
+
+        if (userId) {
+            // Check if teacher profile already exists for this user
+            const existingTeacher = await TeacherModel.findByUserId(userId);
+            if (existingTeacher) {
+                throw new AppError(StatusCodes.CONFLICT, 'Teacher profile already exists for this user');
+            }
+        } else {
+            // Create new user with generated ID
+            userId = generateTeacherUserId(data.name);
+
+            await prisma.user.create({
+                data: {
+                    id: userId,
+                    name: data.name,
+                    email: data.email, // Use provided email (REQUIRED)
+                    username: userId,
+                    password: data.password || 'changeme123', // Use provided password or default
+                    role: 'TEACHER',
+                    status: 'ACTIVE',
+                    departmentId: data.departmentId, // Optional - can be null
+                }
+            });
+        }
+
+        // AUTO-GENERATE employeeId (not provided by user)
+        const employeeId = await generateTeacherId();
+
+        const teacherData = {
+            userId,
+            employeeId, // Always auto-generated
+            departmentId: data.departmentId, // Optional
+            designation: data.designation,
+            specialization: data.specialization,
+        };
+
+        return await TeacherModel.create(teacherData) as unknown as ITeacherWithUser;
     } catch (error) {
         throw error;
     }
@@ -493,6 +535,96 @@ export const getTeacherDashboard = async (teacherId: string): Promise<ITeacherDa
     }
 };
 
+// Teacher assignment services
+export const assignTeacherToDepartment = async (teacherId: string, departmentId: string): Promise<ITeacherWithUser> => {
+    try {
+        // Check if teacher exists
+        const teacher = await TeacherModel.findById(teacherId);
+        if (!teacher) {
+            throw new AppError(StatusCodes.NOT_FOUND, 'Teacher not found');
+        }
+
+        // Check if department exists
+        const department = await prisma.department.findUnique({
+            where: { id: departmentId }
+        });
+        if (!department) {
+            throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
+        }
+
+        // Update teacher with department
+        const updatedTeacher = await TeacherModel.update(teacherId, { departmentId });
+
+        return updatedTeacher as unknown as ITeacherWithUser;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const removeTeacherFromDepartment = async (teacherId: string): Promise<ITeacherWithUser> => {
+    try {
+        // Check if teacher exists
+        const teacher = await TeacherModel.findById(teacherId);
+        if (!teacher) {
+            throw new AppError(StatusCodes.NOT_FOUND, 'Teacher not found');
+        }
+
+        // Remove teacher from department
+        const updatedTeacher = await TeacherModel.update(teacherId, { departmentId: null });
+
+        return updatedTeacher as unknown as ITeacherWithUser;
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const bulkAssignTeachersToDepartment = async (teacherIds: string[], departmentId: string): Promise<{ count: number; teachers: ITeacher[] }> => {
+    try {
+        // Check if department exists
+        const department = await prisma.department.findUnique({
+            where: { id: departmentId }
+        });
+        if (!department) {
+            throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
+        }
+
+        // Update multiple teachers with department
+        const result = await prisma.teacher.updateMany({
+            where: {
+                id: { in: teacherIds }
+            },
+            data: {
+                departmentId
+            }
+        });
+
+        // Get updated teachers
+        const updatedTeachers = await TeacherModel.findMany({
+            departmentId
+        });
+
+        return {
+            count: result.count,
+            teachers: updatedTeachers as unknown as ITeacher[]
+        };
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const getUnassignedTeachers = async (): Promise<ITeacher[]> => {
+    try {
+        // Get teachers without department
+        const unassignedTeachers = await TeacherModel.findMany({
+            departmentId: null
+        });
+
+        return unassignedTeachers as unknown as ITeacher[];
+    } catch (error) {
+        throw error;
+    }
+};
+
 // Export all services
 export const TeacherService = {
     // Profile services
@@ -529,7 +661,12 @@ export const TeacherService = {
     updateSubject,
     deleteSubject,
 
-
     // Dashboard service
     getTeacherDashboard,
+
+    // Teacher assignment services
+    assignTeacherToDepartment,
+    removeTeacherFromDepartment,
+    bulkAssignTeachersToDepartment,
+    getUnassignedTeachers,
 };

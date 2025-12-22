@@ -314,6 +314,51 @@ export const getTeacherDashboard = catchAsync(async (req: Request, res: Response
     });
 });
 
+// Teacher assignment controllers
+export const assignTeacherToDepartment = catchAsync(async (req: Request, res: Response) => {
+    const { teacherId } = req.params;
+    const validatedData = TeacherValidation.teacherDepartmentAssignment.parse(req.body);
+    const result = await TeacherService.assignTeacherToDepartment(teacherId, validatedData.departmentId);
+
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        message: 'Teacher assigned to department successfully',
+        data: result,
+    });
+});
+
+export const removeTeacherFromDepartment = catchAsync(async (req: Request, res: Response) => {
+    const { teacherId } = req.params;
+    const result = await TeacherService.removeTeacherFromDepartment(teacherId);
+
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        message: 'Teacher removed from department successfully',
+        data: result,
+    });
+});
+
+export const bulkAssignTeachersToDepartment = catchAsync(async (req: Request, res: Response) => {
+    const validatedData = TeacherValidation.bulkTeacherAssignment.parse(req.body);
+    const result = await TeacherService.bulkAssignTeachersToDepartment(validatedData.teacherIds, validatedData.departmentId);
+
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        message: 'Teachers assigned to department successfully',
+        data: result,
+    });
+});
+
+export const getUnassignedTeachers = catchAsync(async (req: Request, res: Response) => {
+    const result = await TeacherService.getUnassignedTeachers();
+
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        message: 'Unassigned teachers retrieved successfully',
+        data: result,
+    });
+});
+
 // Export all controllers
 export const TeacherController = {
     // Profile controllers
@@ -350,7 +395,12 @@ export const TeacherController = {
     updateSubject,
     deleteSubject,
 
-
     // Dashboard controller
     getTeacherDashboard,
+
+    // Teacher assignment controllers
+    assignTeacherToDepartment,
+    removeTeacherFromDepartment,
+    bulkAssignTeachersToDepartment,
+    getUnassignedTeachers,
 };
