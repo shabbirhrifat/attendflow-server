@@ -220,6 +220,8 @@ export interface IDepartmentFilters {
     status?: 'all' | 'active' | 'inactive';
     search?: string;
     headId?: string;
+    page?: number;
+    limit?: number;
 }
 
 export interface ISemesterFilters {
@@ -227,6 +229,8 @@ export interface ISemesterFilters {
     year?: number;
     isActive?: boolean;
     search?: string;
+    page?: number;
+    limit?: number;
 }
 
 export interface IBatchFilters {
@@ -234,6 +238,8 @@ export interface IBatchFilters {
     isActive?: boolean;
     status?: 'all' | 'active' | 'inactive';
     search?: string;
+    page?: number;
+    limit?: number;
 }
 
 export interface ISubjectFilters {
@@ -241,6 +247,8 @@ export interface ISubjectFilters {
     isActive?: boolean;
     search?: string;
     credits?: number;
+    page?: number;
+    limit?: number;
 }
 
 // Statistics

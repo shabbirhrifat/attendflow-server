@@ -191,9 +191,9 @@ export const deleteDepartment = async (id: string): Promise<void> => {
     }
 };
 
-export const getAllDepartments = async (filters: IDepartmentFilters = {}): Promise<Department[]> => {
+export const getAllDepartments = async (filters: IDepartmentFilters = {}): Promise<{ data: { departments: Department[] }; meta: any }> => {
     try {
-        const { isActive, status, search, headId } = filters;
+        const { isActive, status, search, headId, page = 1, limit = 10 } = filters;
 
         const where: any = {};
 
@@ -213,20 +213,41 @@ export const getAllDepartments = async (filters: IDepartmentFilters = {}): Promi
             ];
         }
 
-        return await DepartmentModel.findMany({
-            where,
-            include: {
-                _count: {
-                    select: {
-                        students: true,
-                        teachers: true,
-                        subjects: true,
-                        semesters: true,
+        const skip = (page - 1) * limit;
+
+        const [departments, total] = await Promise.all([
+            DepartmentModel.findMany({
+                where,
+                include: {
+                    _count: {
+                        select: {
+                            students: true,
+                            teachers: true,
+                            subjects: true,
+                            semesters: true,
+                        },
                     },
                 },
+                orderBy: { name: 'asc' },
+                skip,
+                take: limit,
+            }) as unknown as Department[],
+            DepartmentModel.count({ where }),
+        ]);
+
+        const meta = {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+        };
+
+        return {
+            data: {
+                departments,
             },
-            orderBy: { name: 'asc' },
-        }) as unknown as Department[];
+            meta,
+        };
     } catch (error) {
         throw error;
     }
@@ -289,9 +310,6 @@ export const getSemesterById = async (id: string): Promise<ISemesterWithRelation
                 department: true,
                 courses: {
                     include: {
-                        teacher: {
-                            select: { id: true, name: true, email: true },
-                        },
                         batch: true,
                         subject: true,
                     },
@@ -382,9 +400,9 @@ export const deleteSemester = async (id: string): Promise<void> => {
     }
 };
 
-export const getAllSemesters = async (filters: ISemesterFilters = {}): Promise<Semester[]> => {
+export const getAllSemesters = async (filters: ISemesterFilters = {}): Promise<{ data: { semesters: Semester[] }; meta: any }> => {
     try {
-        const { departmentId, year, isActive, search } = filters;
+        const { departmentId, year, isActive, search, page = 1, limit = 10 } = filters;
 
         const where: any = {};
 
@@ -397,21 +415,42 @@ export const getAllSemesters = async (filters: ISemesterFilters = {}): Promise<S
             ];
         }
 
-        return await SemesterModel.findMany({
-            where,
-            include: {
-                department: true,
-                _count: {
-                    select: {
-                        courses: true,
+        const skip = (page - 1) * limit;
+
+        const [semesters, total] = await Promise.all([
+            SemesterModel.findMany({
+                where,
+                include: {
+                    department: true,
+                    _count: {
+                        select: {
+                            courses: true,
+                        },
                     },
                 },
+                orderBy: [
+                    { year: 'desc' },
+                    { name: 'asc' },
+                ],
+                skip,
+                take: limit,
+            }),
+            SemesterModel.count({ where }),
+        ]);
+
+        const meta = {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+        };
+
+        return {
+            data: {
+                semesters,
             },
-            orderBy: [
-                { year: 'desc' },
-                { name: 'asc' },
-            ],
-        });
+            meta,
+        };
     } catch (error) {
         throw error;
     }
@@ -486,9 +525,6 @@ export const getBatchById = async (id: string): Promise<IBatchWithRelations | nu
                 },
                 courses: {
                     include: {
-                        teacher: {
-                            select: { id: true, name: true, email: true },
-                        },
                         department: true,
                         subject: true,
                     },
@@ -582,9 +618,9 @@ export const deleteBatch = async (id: string): Promise<void> => {
     }
 };
 
-export const getAllBatches = async (filters: IBatchFilters = {}): Promise<Batch[]> => {
+export const getAllBatches = async (filters: IBatchFilters = {}): Promise<{ data: { batches: Batch[] }; meta: any }> => {
     try {
-        const { year, isActive, status, search } = filters;
+        const { year, isActive, status, search, page = 1, limit = 10 } = filters;
 
         const where: any = {};
 
@@ -603,21 +639,42 @@ export const getAllBatches = async (filters: IBatchFilters = {}): Promise<Batch[
             ];
         }
 
-        return await BatchModel.findMany({
-            where,
-            include: {
-                _count: {
-                    select: {
-                        students: true,
-                        courses: true,
+        const skip = (page - 1) * limit;
+
+        const [batches, total] = await Promise.all([
+            BatchModel.findMany({
+                where,
+                include: {
+                    _count: {
+                        select: {
+                            students: true,
+                            courses: true,
+                        },
                     },
                 },
+                orderBy: [
+                    { year: 'desc' },
+                    { name: 'asc' },
+                ],
+                skip,
+                take: limit,
+            }) as unknown as Batch[],
+            BatchModel.count({ where }),
+        ]);
+
+        const meta = {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+        };
+
+        return {
+            data: {
+                batches,
             },
-            orderBy: [
-                { year: 'desc' },
-                { name: 'asc' },
-            ],
-        }) as unknown as Batch[];
+            meta,
+        };
     } catch (error) {
         throw error;
     }
@@ -685,10 +742,8 @@ export const getSubjectById = async (id: string): Promise<ISubjectWithRelations 
                 department: true,
                 courses: {
                     include: {
-                        teacher: {
-                            select: { id: true, name: true, email: true },
-                        },
                         batch: true,
+                        subject: true,
                     },
                 },
                 _count: {
@@ -788,9 +843,9 @@ export const deleteSubject = async (id: string): Promise<void> => {
     }
 };
 
-export const getAllSubjects = async (filters: ISubjectFilters = {}): Promise<Subject[]> => {
+export const getAllSubjects = async (filters: ISubjectFilters = {}): Promise<{ data: { subjects: Subject[] }; meta: any }> => {
     try {
-        const { departmentId, isActive, search, credits } = filters;
+        const { departmentId, isActive, search, credits, page = 1, limit = 10 } = filters;
 
         const where: any = {};
 
@@ -805,18 +860,39 @@ export const getAllSubjects = async (filters: ISubjectFilters = {}): Promise<Sub
             ];
         }
 
-        return await SubjectModel.findMany({
-            where,
-            include: {
-                department: true,
-                _count: {
-                    select: {
-                        courses: true,
+        const skip = (page - 1) * limit;
+
+        const [subjects, total] = await Promise.all([
+            SubjectModel.findMany({
+                where,
+                include: {
+                    department: true,
+                    _count: {
+                        select: {
+                            courses: true,
+                        },
                     },
                 },
+                orderBy: { name: 'asc' },
+                skip,
+                take: limit,
+            }) as unknown as Subject[],
+            SubjectModel.count({ where }),
+        ]);
+
+        const meta = {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+        };
+
+        return {
+            data: {
+                subjects,
             },
-            orderBy: { name: 'asc' },
-        }) as unknown as Subject[];
+            meta,
+        };
     } catch (error) {
         throw error;
     }

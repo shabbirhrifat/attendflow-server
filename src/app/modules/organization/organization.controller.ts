@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { OrganizationService } from './organization.service';
 import { OrganizationValidation } from './organization.validation';
 import { IOrganizationResponse } from './organization.interface';
-import sendResponse from '../../utils/sendResponse';
+import sendResponse, { sendPaginatedResponse } from '../../utils/sendResponse';
 import catchAsync from '../../utils/catchAsync';
 import { StatusCodes } from 'http-status-codes';
 
@@ -56,11 +56,14 @@ export const getAllDepartments = catchAsync(async (req: Request, res: Response) 
     const filters = OrganizationValidation.departmentFilters.parse(req.query);
     const result = await OrganizationService.getAllDepartments(filters);
 
-    sendResponse(res, {
-        statusCode: StatusCodes.OK,
-        message: 'Departments retrieved successfully',
-        data: result,
-    });
+    sendPaginatedResponse(
+        res,
+        'departments',
+        result.data.departments,
+        result.meta,
+        'Departments retrieved successfully',
+        StatusCodes.OK
+    );
 });
 
 export const getDepartmentStats = catchAsync(async (req: Request, res: Response) => {
@@ -132,11 +135,14 @@ export const getAllSemesters = catchAsync(async (req: Request, res: Response) =>
     const filters = OrganizationValidation.semesterFilters.parse(req.query);
     const result = await OrganizationService.getAllSemesters(filters);
 
-    sendResponse(res, {
-        statusCode: StatusCodes.OK,
-        message: 'Semesters retrieved successfully',
-        data: result,
-    });
+    sendPaginatedResponse(
+        res,
+        'semesters',
+        result.data.semesters,
+        result.meta,
+        'Semesters retrieved successfully',
+        StatusCodes.OK
+    );
 });
 
 export const getSemesterStats = catchAsync(async (req: Request, res: Response) => {
@@ -208,11 +214,14 @@ export const getAllBatches = catchAsync(async (req: Request, res: Response) => {
     const filters = OrganizationValidation.batchFilters.parse(req.query);
     const result = await OrganizationService.getAllBatches(filters);
 
-    sendResponse(res, {
-        statusCode: StatusCodes.OK,
-        message: 'Batches retrieved successfully',
-        data: result,
-    });
+    sendPaginatedResponse(
+        res,
+        'batches',
+        result.data.batches,
+        result.meta,
+        'Batches retrieved successfully',
+        StatusCodes.OK
+    );
 });
 
 export const getBatchStats = catchAsync(async (req: Request, res: Response) => {
@@ -275,11 +284,14 @@ export const getAllSubjects = catchAsync(async (req: Request, res: Response) => 
     const filters = OrganizationValidation.subjectFilters.parse(req.query);
     const result = await OrganizationService.getAllSubjects(filters);
 
-    sendResponse(res, {
-        statusCode: StatusCodes.OK,
-        message: 'Subjects retrieved successfully',
-        data: result,
-    });
+    sendPaginatedResponse(
+        res,
+        'subjects',
+        result.data.subjects,
+        result.meta,
+        'Subjects retrieved successfully',
+        StatusCodes.OK
+    );
 });
 
 export const getSubjectStats = catchAsync(async (req: Request, res: Response) => {
