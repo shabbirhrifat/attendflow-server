@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import prisma from '../app/config/prisma';
 import bcrypt from 'bcrypt';
 

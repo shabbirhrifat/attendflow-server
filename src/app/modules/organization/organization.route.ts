@@ -22,6 +22,20 @@ router.post(
     OrganizationController.createDepartment
 );
 
+// Move statistics routes up
+/**
+ * @description get department statistics
+ * @param {string} path - /api/organization/departments/stats
+ * @param {function} controller - ['getDepartmentStats']
+ * @returns {object} - router
+ * @access private
+ * @method GET
+ */
+router.get(
+    "/departments/stats",
+    OrganizationController.getDepartmentStats
+);
+
 /**
  * @description get all departments with filtering
  * @param {string} path - /api/organization/departments
@@ -99,6 +113,19 @@ router.post(
     AuthorizeRequest('ADMIN'),
     validateRequest(OrganizationValidation.createSemester),
     OrganizationController.createSemester
+);
+
+/**
+ * @description get semester statistics
+ * @param {string} path - /api/organization/semesters/stats
+ * @param {function} controller - ['getSemesterStats']
+ * @returns {object} - router
+ * @access private
+ * @method GET
+ */
+router.get(
+    "/semesters/stats",
+    OrganizationController.getSemesterStats
 );
 
 /**
@@ -181,6 +208,19 @@ router.post(
 );
 
 /**
+ * @description get batch statistics
+ * @param {string} path - /api/organization/batches/stats
+ * @param {function} controller - ['getBatchStats']
+ * @returns {object} - router
+ * @access private
+ * @method GET
+ */
+router.get(
+    "/batches/stats",
+    OrganizationController.getBatchStats
+);
+
+/**
  * @description get all batches with filtering
  * @param {string} path - /api/organization/batches
  * @param {function} middleware - ['validateRequest(OrganizationValidation.batchFilters)']
@@ -260,6 +300,19 @@ router.post(
 );
 
 /**
+ * @description get subject statistics
+ * @param {string} path - /api/organization/subjects/stats
+ * @param {function} controller - ['getSubjectStats']
+ * @returns {object} - router
+ * @access private
+ * @method GET
+ */
+router.get(
+    "/subjects/stats",
+    OrganizationController.getSubjectStats
+);
+
+/**
  * @description get all subjects with filtering
  * @param {string} path - /api/organization/subjects
  * @param {function} middleware - ['validateRequest(OrganizationValidation.paginationQuery)']
@@ -320,6 +373,19 @@ router.delete(
     AuthorizeRequest('ADMIN'),
     validateRequest(OrganizationValidation.subjectIdParam),
     OrganizationController.deleteSubject
+);
+
+/**
+ * @description get organization overview
+ * @param {string} path - /api/organization/overview
+ * @param {function} controller - ['getOrganizationOverview']
+ * @returns {object} - router
+ * @access private
+ * @method GET
+ */
+router.get(
+    "/overview",
+    OrganizationController.getOrganizationOverview
 );
 
 export const organizationRoutes = router;

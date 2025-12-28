@@ -3,12 +3,24 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
 const prismaClientSingleton = () => {
+    const connectionString = process.env.DATABASE_URL;
+    
+    if (!connectionString) {
+        throw new Error('DATABASE_URL environment variable is not set');
+    }
+    
+    // Parse connection URL
+    const url = new URL(connectionString);
+    
     const pool = new Pool({
-        host: 'localhost',
-        port: 5432,
-        user: 'postgres',
-        password: '01632029032',
-        database: 'attendflow',
+        host: url.hostname,
+        port: parseInt(url.port) || 5432,
+        database: url.pathname.slice(1),
+        user: url.username,
+        password: decodeURIComponent(url.password),
+        ssl: url.searchParams.get('sslmode') === 'require' ? {
+            rejectUnauthorized: false,
+        } : undefined,
     });
 
     const adapter = new PrismaPg(pool);
@@ -17,7 +29,9 @@ const prismaClientSingleton = () => {
         log: ['error', 'warn'],
         adapter,
     });
-}; declare global {
+};
+
+declare global {
     // eslint-disable-next-line no-var
     var prismaGlobal: undefined | ReturnType<typeof prismaClientSingleton>;
 }

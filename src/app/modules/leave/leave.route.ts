@@ -7,121 +7,6 @@ import AuthorizeRequest from '../../middlewares/auth';
 const router = Router();
 
 /**
- * @description submit a new leave request
- * @param {string} path - /api/leave/
- * @param {function} middleware - ['AuthorizeRequest()', 'validateRequest(leaveValidation.createLeaveSchema)']
- * @param {function} controller - ['submitLeave']
- * @returns {object} - router
- * @access private
- * @method POST
- */
-router.post(
-    '/',
-    AuthorizeRequest(),
-    validateRequest(leaveValidation.createLeaveSchema),
-    leaveControllers.submitLeave
-);
-
-/**
- * @description update leave request
- * @param {string} path - /api/leave/:id
- * @param {function} middleware - ['AuthorizeRequest()', 'validateRequest(leaveValidation.idParamSchema)', 'validateRequest(leaveValidation.updateLeaveSchema)']
- * @param {function} controller - ['updateLeave']
- * @returns {object} - router
- * @access private
- * @method PATCH
- */
-router.patch(
-    '/:id',
-    AuthorizeRequest(),
-    validateRequest(leaveValidation.idParamSchema),
-    validateRequest(leaveValidation.updateLeaveSchema),
-    leaveControllers.updateLeave
-);
-
-/**
- * @description get leave by ID
- * @param {string} path - /api/leave/:id
- * @param {function} middleware - ['AuthorizeRequest()', 'validateRequest(leaveValidation.idParamSchema)']
- * @param {function} controller - ['getLeaveById']
- * @returns {object} - router
- * @access private
- * @method GET
- */
-router.get(
-    '/:id',
-    AuthorizeRequest(),
-    validateRequest(leaveValidation.idParamSchema),
-    leaveControllers.getLeaveById
-);
-
-/**
- * @description get all leave requests with filters
- * @param {string} path - /api/leave/
- * @param {function} middleware - ['AuthorizeRequest()', 'validateRequest(leaveValidation.leaveFiltersSchema)']
- * @param {function} controller - ['getLeaves']
- * @returns {object} - router
- * @access private
- * @method GET
- */
-router.get(
-    '/',
-    AuthorizeRequest(),
-    validateRequest(leaveValidation.leaveFiltersSchema),
-    leaveControllers.getLeaves
-);
-
-/**
- * @description approve leave request
- * @param {string} path - /api/leave/:id/approve
- * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)', 'validateRequest(leaveValidation.idParamSchema)', 'validateRequest(leaveValidation.approveRejectLeaveSchema)']
- * @param {function} controller - ['approveLeave']
- * @returns {object} - router
- * @access private - ['TEACHER', 'ADMIN']
- * @method PATCH
- */
-router.patch(
-    '/:id/approve',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
-    validateRequest(leaveValidation.idParamSchema),
-    validateRequest(leaveValidation.approveRejectLeaveSchema),
-    leaveControllers.approveLeave
-);
-
-/**
- * @description reject leave request
- * @param {string} path - /api/leave/:id/reject
- * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)', 'validateRequest(leaveValidation.idParamSchema)', 'validateRequest(leaveValidation.approveRejectLeaveSchema)']
- * @param {function} controller - ['rejectLeave']
- * @returns {object} - router
- * @access private - ['TEACHER', 'ADMIN']
- * @method PATCH
- */
-router.patch(
-    '/:id/reject',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
-    validateRequest(leaveValidation.idParamSchema),
-    validateRequest(leaveValidation.approveRejectLeaveSchema),
-    leaveControllers.rejectLeave
-);
-
-/**
- * @description delete leave request
- * @param {string} path - /api/leave/:id
- * @param {function} middleware - ['AuthorizeRequest()', 'validateRequest(leaveValidation.idParamSchema)']
- * @param {function} controller - ['deleteLeave']
- * @returns {object} - router
- * @access private
- * @method DELETE
- */
-router.delete(
-    '/:id',
-    AuthorizeRequest(),
-    validateRequest(leaveValidation.idParamSchema),
-    leaveControllers.deleteLeave
-);
-
-/**
  * @description get leave statistics
  * @param {string} path - /api/leave/stats
  * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)']
@@ -179,6 +64,121 @@ router.get(
     '/pending',
     AuthorizeRequest('TEACHER', 'ADMIN'),
     leaveControllers.getPendingLeaves
+);
+
+/**
+ * @description submit a new leave request
+ * @param {string} path - /api/leave/
+ * @param {function} middleware - ['AuthorizeRequest()', 'validateRequest(leaveValidation.createLeaveSchema)']
+ * @param {function} controller - ['submitLeave']
+ * @returns {object} - router
+ * @access private
+ * @method POST
+ */
+router.post(
+    '/',
+    AuthorizeRequest(),
+    validateRequest(leaveValidation.createLeaveSchema),
+    leaveControllers.submitLeave
+);
+
+/**
+ * @description get all leave requests with filters
+ * @param {string} path - /api/leave/
+ * @param {function} middleware - ['AuthorizeRequest()', 'validateRequest(leaveValidation.leaveFiltersSchema)']
+ * @param {function} controller - ['getLeaves']
+ * @returns {object} - router
+ * @access private
+ * @method GET
+ */
+router.get(
+    '/',
+    AuthorizeRequest(),
+    validateRequest(leaveValidation.leaveFiltersSchema),
+    leaveControllers.getLeaves
+);
+
+/**
+ * @description get leave by ID
+ * @param {string} path - /api/leave/:id
+ * @param {function} middleware - ['AuthorizeRequest()', 'validateRequest(leaveValidation.idParamSchema)']
+ * @param {function} controller - ['getLeaveById']
+ * @returns {object} - router
+ * @access private
+ * @method GET
+ */
+router.get(
+    '/:id',
+    AuthorizeRequest(),
+    validateRequest(leaveValidation.idParamSchema),
+    leaveControllers.getLeaveById
+);
+
+/**
+ * @description update leave request
+ * @param {string} path - /api/leave/:id
+ * @param {function} middleware - ['AuthorizeRequest()', 'validateRequest(leaveValidation.idParamSchema)', 'validateRequest(leaveValidation.updateLeaveSchema)']
+ * @param {function} controller - ['updateLeave']
+ * @returns {object} - router
+ * @access private
+ * @method PATCH
+ */
+router.patch(
+    '/:id',
+    AuthorizeRequest(),
+    validateRequest(leaveValidation.idParamSchema),
+    validateRequest(leaveValidation.updateLeaveSchema),
+    leaveControllers.updateLeave
+);
+
+/**
+ * @description delete leave request
+ * @param {string} path - /api/leave/:id
+ * @param {function} middleware - ['AuthorizeRequest()', 'validateRequest(leaveValidation.idParamSchema)']
+ * @param {function} controller - ['deleteLeave']
+ * @returns {object} - router
+ * @access private
+ * @method DELETE
+ */
+router.delete(
+    '/:id',
+    AuthorizeRequest(),
+    validateRequest(leaveValidation.idParamSchema),
+    leaveControllers.deleteLeave
+);
+
+/**
+ * @description approve leave request
+ * @param {string} path - /api/leave/:id/approve
+ * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)', 'validateRequest(leaveValidation.idParamSchema)', 'validateRequest(leaveValidation.approveRejectLeaveSchema)']
+ * @param {function} controller - ['approveLeave']
+ * @returns {object} - router
+ * @access private - ['TEACHER', 'ADMIN']
+ * @method PATCH
+ */
+router.patch(
+    '/:id/approve',
+    AuthorizeRequest('TEACHER', 'ADMIN'),
+    validateRequest(leaveValidation.idParamSchema),
+    validateRequest(leaveValidation.approveRejectLeaveSchema),
+    leaveControllers.approveLeave
+);
+
+/**
+ * @description reject leave request
+ * @param {string} path - /api/leave/:id/reject
+ * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)', 'validateRequest(leaveValidation.idParamSchema)', 'validateRequest(leaveValidation.approveRejectLeaveSchema)']
+ * @param {function} controller - ['rejectLeave']
+ * @returns {object} - router
+ * @access private - ['TEACHER', 'ADMIN']
+ * @method PATCH
+ */
+router.patch(
+    '/:id/reject',
+    AuthorizeRequest('TEACHER', 'ADMIN'),
+    validateRequest(leaveValidation.idParamSchema),
+    validateRequest(leaveValidation.approveRejectLeaveSchema),
+    leaveControllers.rejectLeave
 );
 
 /**

@@ -23,6 +23,21 @@ router.post(
 );
 
 /**
+ * @description get teacher statistics
+ * @param {string} path - /api/teacher/stats
+ * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)']
+ * @param {function} controller - ['getTeacherStats']
+ * @returns {object} - router
+ * @access private - ['TEACHER', 'ADMIN']
+ * @method GET
+ */
+router.get(
+    '/stats',
+    AuthorizeRequest('TEACHER', 'ADMIN'),
+    TeacherController.getTeacherStats
+);
+
+/**
  * @description get teacher profile
  * @param {string} path - /api/teacher/:teacherId
  * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)', 'validateRequest(TeacherValidation.teacherIdParam)']
@@ -85,21 +100,6 @@ router.get(
     AuthorizeRequest('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherFilters),
     TeacherController.getAllTeachers
-);
-
-/**
- * @description get teacher statistics
- * @param {string} path - /api/teacher/stats
- * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)']
- * @param {function} controller - ['getTeacherStats']
- * @returns {object} - router
- * @access private - ['TEACHER', 'ADMIN']
- * @method GET
- */
-router.get(
-    '/stats',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
-    TeacherController.getTeacherStats
 );
 
 /**
