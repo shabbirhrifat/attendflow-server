@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "npm run schema:merge && prisma generate && tsc",
+    "postinstall": "npm run schema:merge && prisma generate",
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "ts-node-dev --respawn --transpile-only ./src/server.ts",
     "lint": "npx eslint src --ignore-pattern .ts",
@@ -41,6 +42,7 @@
     "multer": "^2.0.2",
     "nodemailer": "^7.0.6",
     "pg": "^8.16.3",
+    "prisma": "^7.2.0",
     "zod": "^4.1.8"
   },
   "devDependencies": {
@@ -55,7 +57,6 @@
     "commander": "^14.0.1",
     "eslint": "^9.35.0",
     "globals": "^16.4.0",
-    "prisma": "^7.2.0",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.2",
