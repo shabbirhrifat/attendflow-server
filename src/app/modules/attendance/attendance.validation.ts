@@ -136,6 +136,7 @@ const attendanceFiltersSchema = z.object({
         limit: z.string().regex(/^\d+$/, 'Limit must be a number').optional(),
         sortBy: z.string().optional(),
         sortOrder: z.enum(['asc', 'desc']).optional(),
+        sort: z.string().optional(),
     }),
 });
 

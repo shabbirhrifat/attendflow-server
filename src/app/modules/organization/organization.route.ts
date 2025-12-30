@@ -323,7 +323,7 @@ router.get(
  */
 router.get(
     "/subjects",
-    validateRequest(OrganizationValidation.paginationQuery),
+    validateRequest(OrganizationValidation.subjectFilters),
     OrganizationController.getAllSubjects
 );
 

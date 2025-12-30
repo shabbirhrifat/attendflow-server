@@ -217,7 +217,6 @@ export const assignTeacherToCourse = async (
         where: { id: data.courseId },
         data: { teacherId: teacher.userId }, // Use userId for course.teacherId
         include: {
-            teacher: true,
             teacherProfile: true,
             batch: true,
             department: true,
@@ -260,7 +259,7 @@ export const assignCourseToDepartment = async (
         where: { id: data.courseId },
         data: { departmentId: data.departmentId },
         include: {
-            teacher: true,
+            teacherProfile: true,
             batch: true,
             department: true,
         },
@@ -302,7 +301,7 @@ export const assignCourseToBatch = async (
         where: { id: data.courseId },
         data: { batchId: data.batchId },
         include: {
-            teacher: true,
+            teacherProfile: true,
             batch: true,
             department: true,
         },

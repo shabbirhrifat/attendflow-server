@@ -68,7 +68,7 @@ const bulkMarkAttendance = catchAsync(async (req: Request, res: Response) => {
  * Get attendance summary for a course
  */
 const getCourseAttendanceSummary = catchAsync(async (req: Request, res: Response) => {
-    const { courseId } = req.params;
+    const { id: courseId } = req.params;
     const { startDate, endDate } = req.query;
 
     const result = await attendanceServices.getCourseAttendanceSummary(

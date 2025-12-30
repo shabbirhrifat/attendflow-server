@@ -21,7 +21,7 @@ const globalErrorHandler: ErrorRequestHandler = (
   res: Response<TGenericErrorResponse>,
   next
 ) => {
-  console.error('Global Error Handler:', error);
+  console.error('Global Error Handler:', error);  
   let statusCode = 500;
   let message = 'Something Went Wrong';
   let errorSources: TErrorSources = [{ path: ' ', message: 'Something Went Wrong' }];

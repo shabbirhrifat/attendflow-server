@@ -16,6 +16,7 @@ import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
 import prisma from '../../config/prisma';
 import { generateStudentId, generateStudentUserId } from '../../utils/idGenerator';
+import { hashInfo } from '../../utils/hashInfo';
 
 /** Create a new Student profile */
 const createStudent = async (data: IStudentCreate): Promise<IStudentWithUser> => {
@@ -63,13 +64,16 @@ const createStudent = async (data: IStudentCreate): Promise<IStudentWithUser> =>
         // Create new user with generated ID
         userId = generateStudentUserId(data.name);
 
+        // Hash password before creating user
+        const hashedPassword = await hashInfo(data.password || 'changeme123');
+
         user = await prisma.user.create({
             data: {
                 id: userId,
                 name: data.name,
                 email: data.email, // Use provided email (REQUIRED)
                 username: userId,
-                password: data.password || 'changeme123', // Use provided password or default
+                password: hashedPassword, // Use hashed password
                 role: 'STUDENT',
                 status: 'ACTIVE',
                 departmentId: data.departmentId, // Optional - can be null
@@ -1006,6 +1010,66 @@ const bulkAssignStudentsToDepartment = async (studentIds: string[], departmentId
     };
 };
 
+/** Get Student Statistics */
+const getStudentStats = async (): Promise<any> => {
+    const [
+        totalStudents,
+        activeStudents,
+        inactiveStudents,
+        studentsByDepartment,
+        studentsByBatch,
+        studentsBySemester
+    ] = await Promise.all([
+        prisma.student.count(),
+        prisma.student.count({ where: { user: { status: 'ACTIVE' } } }),
+        prisma.student.count({ where: { user: { status: 'INACTIVE' } } }),
+        prisma.student.groupBy({
+            by: ['departmentId'],
+            _count: { _all: true },
+        }),
+        prisma.student.groupBy({
+            by: ['batchId'],
+            _count: { _all: true },
+        }),
+        prisma.student.groupBy({
+            by: ['semester'],
+            _count: { _all: true },
+        }),
+    ]);
+
+    // Get department names for the stats
+    const departments = await prisma.department.findMany({
+        where: { id: { in: studentsByDepartment.map(d => d.departmentId).filter((id): id is string => id !== null) } },
+        select: { id: true, name: true }
+    });
+
+    // Get batch names for the stats
+    const batches = await prisma.batch.findMany({
+        where: { id: { in: studentsByBatch.map(b => b.batchId).filter((id): id is string => id !== null) } },
+        select: { id: true, name: true }
+    });
+
+    return {
+        total: totalStudents,
+        active: activeStudents,
+        inactive: inactiveStudents,
+        byDepartment: studentsByDepartment.map(d => ({
+            departmentId: d.departmentId,
+            name: departments.find(dept => dept.id === d.departmentId)?.name || 'Unknown',
+            count: d._count._all,
+        })),
+        byBatch: studentsByBatch.map(b => ({
+            batchId: b.batchId,
+            name: batches.find(batch => batch.id === b.batchId)?.name || 'Unknown',
+            count: b._count._all,
+        })),
+        bySemester: studentsBySemester.map(s => ({
+            semester: s.semester,
+            count: s._count._all,
+        })),
+    };
+};
+
 /** Get Unassigned Students */
 const getUnassignedStudents = async (): Promise<any[]> => {
     // Get students without batch or department
@@ -1049,4 +1113,5 @@ export const studentServices = {
     bulkAssignStudentsToBatch,
     bulkAssignStudentsToDepartment,
     getUnassignedStudents,
+    getStudentStats,
 };

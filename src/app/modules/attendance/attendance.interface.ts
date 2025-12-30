@@ -183,6 +183,7 @@ export interface IAttendanceFilters {
     limit?: number;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
+    sort?: string;
 }
 
 // Attendance summary interface

@@ -81,7 +81,21 @@ export const AttendanceModel = {
 
     // Get attendance records with filters
     findMany: async (filters: IAttendanceFilters) => {
-        const { courseId, userId, status, startDate, endDate, page = 1, limit = 10, sortBy = 'date', sortOrder = 'desc' } = filters;
+        const { courseId, userId, status, startDate, endDate, page = 1, limit = 10, sortBy = 'date', sortOrder = 'desc', sort } = filters;
+        
+        // Handle sort parameter format: "-createdAt" or "createdAt"
+        let actualSortBy = sortBy;
+        let actualSortOrder = sortOrder;
+        
+        if (sort) {
+            if (sort.startsWith('-')) {
+                actualSortBy = sort.substring(1);
+                actualSortOrder = 'desc';
+            } else {
+                actualSortBy = sort;
+                actualSortOrder = 'asc';
+            }
+        }
 
         const where: any = {};
 
@@ -94,7 +108,9 @@ export const AttendanceModel = {
             if (endDate) where.date.lte = new Date(endDate);
         }
 
-        const skip = (page - 1) * limit;
+        const numericPage = typeof page === 'string' ? parseInt(page, 10) : page;
+        const numericLimit = typeof limit === 'string' ? parseInt(limit, 10) : limit;
+        const skip = (numericPage - 1) * numericLimit;
 
         const [attendances, total] = await Promise.all([
             prisma.attendance.findMany({
@@ -107,9 +123,9 @@ export const AttendanceModel = {
                         select: { id: true, title: true, code: true },
                     },
                 },
-                orderBy: { [sortBy]: sortOrder },
+                orderBy: { [actualSortBy]: actualSortOrder },
                 skip,
-                take: limit,
+                take: numericLimit,
             }),
             prisma.attendance.count({ where }),
         ]);
@@ -117,10 +133,10 @@ export const AttendanceModel = {
         return {
             data: attendances,
             meta: {
-                page,
-                limit,
+                page: numericPage,
+                limit: numericLimit,
                 total,
-                totalPages: Math.ceil(total / limit),
+                totalPages: Math.ceil(total / numericLimit),
             },
         };
     },

@@ -23,6 +23,21 @@ router.post(
 );
 
 /**
+ * @description get student statistics
+ * @param {string} path - /api/student/stats
+ * @param {function} middleware - ['AuthorizeRequest(ADMIN)']
+ * @param {function} controller - ['getStudentStats']
+ * @returns {object} - router
+ * @access private - ['ADMIN']
+ * @method GET
+ */
+router.get(
+    "/stats",
+    AuthorizeRequest('ADMIN'),
+    studentControllers.getStudentStats
+);
+
+/**
  * @description get a single student by ID
  * @param {string} path - /api/student/:id
  * @param {function} middleware - ['validateRequest(studentValidation.studentIdParamSchema)']

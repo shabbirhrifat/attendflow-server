@@ -119,6 +119,15 @@ const getStudentDashboard = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+/** Get Student Statistics */
+const getStudentStats = catchAsync(async (req: Request, res: Response) => {
+    const result = await studentServices.getStudentStats();
+    sendResponse(res, {
+        message: "Student statistics retrieved successfully",
+        data: result,
+    });
+});
+
 export const studentControllers = {
     createStudent,
     getSingleStudent,
@@ -132,4 +141,5 @@ export const studentControllers = {
     submitLeaveRequest,
     updateStudentProfile,
     getStudentDashboard,
+    getStudentStats,
 };

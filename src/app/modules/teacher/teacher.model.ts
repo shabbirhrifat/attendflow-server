@@ -116,31 +116,47 @@ export const TeacherModel = {
     // Get teacher statistics
     getStats: async () => {
         const totalTeachers = await prisma.teacher.count();
-        const activeTeachers = await prisma.teacher.count({ where: { isActive: true } });
-        const inactiveTeachers = await prisma.teacher.count({ where: { isActive: false } });
+        const activeTeachers = await prisma.teacher.count({ where: { user: { status: 'ACTIVE' } } });
+        const inactiveTeachers = await prisma.teacher.count({ where: { user: { status: 'INACTIVE' } } });
 
         const teachersByDepartment = await prisma.teacher.groupBy({
             by: ['departmentId'],
-            _count: true,
+            _count: { _all: true },
         });
 
         const teachersByDesignation = await prisma.teacher.groupBy({
             by: ['designation'],
-            _count: true,
+            _count: { _all: true },
+        });
+
+        // Get department names
+        const departments = await prisma.department.findMany({
+            where: { id: { in: teachersByDepartment.map(d => d.departmentId).filter(Boolean) as string[] } },
+            select: { id: true, name: true }
+        });
+
+        // Transform teachersByDepartment to Record<string, number>
+        const teachersByDepartmentRecord: Record<string, number> = {};
+        teachersByDepartment.forEach(d => {
+            if (d.departmentId) {
+                const deptName = departments.find(dept => dept.id === d.departmentId)?.name || 'Unknown';
+                teachersByDepartmentRecord[deptName] = d._count._all;
+            }
+        });
+
+        // Transform teachersByDesignation to Record<string, number>
+        const teachersByDesignationRecord: Record<string, number> = {};
+        teachersByDesignation.forEach(d => {
+            const designation = d.designation || 'Unknown';
+            teachersByDesignationRecord[designation] = d._count._all;
         });
 
         return {
             totalTeachers,
             activeTeachers,
             inactiveTeachers,
-            teachersByDepartment: teachersByDepartment.reduce((acc: Record<string, number>, item: any) => {
-                acc[item.departmentId] = item._count;
-                return acc;
-            }, {}),
-            teachersByDesignation: teachersByDesignation.reduce((acc: Record<string, number>, item: any) => {
-                acc[item.designation || 'Unknown'] = item._count;
-                return acc;
-            }, {}),
+            teachersByDepartment: teachersByDepartmentRecord,
+            teachersByDesignation: teachersByDesignationRecord,
         };
     },
 };
