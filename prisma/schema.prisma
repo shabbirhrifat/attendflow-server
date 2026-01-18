@@ -102,13 +102,12 @@ model User {
     classSchedules ClassSchedule[] @relation("TeacherSchedules")
 
     // Course relationships
+    taughtCourses     Course[]           @relation("TeacherCourses")
     courseEnrollments CourseEnrollment[]
 
     // Attendance relationships
     attendanceRecords Attendance[]        @relation("UserAttendance")
     markedAttendances Attendance[]        @relation("AttendanceMarker")
-    qrCheckIns        QRCheckIn[]         @relation("UserQRCheckIns")
-    qrCodes           QRCode[]            @relation("UserQRCodes")
     teacherSessions   AttendanceSession[] @relation("TeacherSessions")
 
     // Leave relationships
@@ -121,7 +120,12 @@ model User {
     refreshTokens           RefreshToken[]
     passwordResetTokens     PasswordResetToken[]
     emailVerificationTokens EmailVerificationToken[]
+    sessions                Session[]         @relation("UserSessions")
 
+    @@index([role])
+    @@index([status])
+    @@index([departmentId])
+    @@index([createdAt])
     @@map("users")
 }
 
@@ -148,6 +152,10 @@ model Student {
     leaveRequests     LeaveRequest[] @relation("StudentLeaveRequests")
     leaveBalance      LeaveBalance?  @relation("StudentLeaveBalance")
 
+    @@index([batchId])
+    @@index([departmentId])
+    @@index([isActive])
+    @@index([studentId])
     @@map("students")
 }
 
@@ -165,13 +173,16 @@ model Teacher {
     updatedAt      DateTime @updatedAt
 
     // Relationships
-    user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-    department    Department?    @relation(fields: [departmentId], references: [id])
-    courses       Course[]       @relation("TeacherProfileCourses")
-    leaveRequests LeaveRequest[] @relation("TeacherLeaveRequests")
-    leaveBalance  LeaveBalance?  @relation("TeacherLeaveBalance")
-    headedDepartments Department[] @relation("DepartmentHead")
+    user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+    department        Department?    @relation(fields: [departmentId], references: [id])
+    courses           Course[]       @relation("TeacherProfileCourses")
+    leaveRequests     LeaveRequest[] @relation("TeacherLeaveRequests")
+    leaveBalance      LeaveBalance?  @relation("TeacherLeaveBalance")
+    headedDepartments Department[]   @relation("DepartmentHead")
 
+    @@index([departmentId])
+    @@index([isActive])
+    @@index([employeeId])
     @@map("teachers")
 }
 
@@ -196,6 +207,8 @@ model Batch {
     courses   Course[]
     schedules ClassSchedule[]
 
+    @@index([year])
+    @@index([isActive])
     @@map("batches")
 }
 
@@ -219,6 +232,7 @@ model Department {
     semesters Semester[]
     head      Teacher?   @relation("DepartmentHead", fields: [headId], references: [id])
 
+    @@index([isActive])
     @@map("departments")
 }
 
@@ -270,7 +284,7 @@ model Course {
     credits      Int      @default(0)
     batchId      String? // OPTIONAL: Can be assigned later via assignment API
     departmentId String? // OPTIONAL: Can be assigned later via assignment API
-    teacherId    String? // OPTIONAL: Can be assigned later via assignment API - NOW REFERENCES TEACHER TABLE
+    teacherId    String? // OPTIONAL: Can be assigned later via assignment API
     subjectId    String? // OPTIONAL: Can be assigned later
     semesterId   String? // OPTIONAL: Can be assigned later
     semester     Int      @default(1)
@@ -279,7 +293,8 @@ model Course {
     updatedAt    DateTime @updatedAt
 
     // Relationships
-    teacherProfile     Teacher?            @relation("TeacherProfileCourses", fields: [teacherId], references: [id], map: "course_teacher_fkey")
+    teacher            User?               @relation("TeacherCourses", fields: [teacherId], references: [id], map: "course_teacher_fkey")
+    teacherProfile     Teacher?            @relation("TeacherProfileCourses", fields: [teacherId], references: [id], map: "course_teacher_profile_fkey")
     batch              Batch?              @relation(fields: [batchId], references: [id])
     department         Department?         @relation(fields: [departmentId], references: [id])
     subject            Subject?            @relation(fields: [subjectId], references: [id])
@@ -287,9 +302,14 @@ model Course {
     enrollments        CourseEnrollment[]
     attendanceRecords  Attendance[]        @relation("CourseAttendance")
     schedules          ClassSchedule[]
-    qrcodes            QRCode[]            @relation("CourseQRCodes")
     attendanceSessions AttendanceSession[] @relation("CourseSessions")
 
+    @@index([departmentId])
+    @@index([teacherId])
+    @@index([batchId])
+    @@index([semesterId])
+    @@index([isActive])
+    @@index([code])
     @@map("courses")
 }
 
@@ -360,7 +380,6 @@ model Attendance {
     markedBy            String?
     createdAt           DateTime         @default(now())
     updatedAt           DateTime         @updatedAt
-    qRCodeId            String?
     attendanceSessionId String?
 
     // Relationships
@@ -368,36 +387,16 @@ model Attendance {
     course            Course             @relation("CourseAttendance", fields: [courseId], references: [id])
     marker            User?              @relation("AttendanceMarker", fields: [markedBy], references: [id])
     student           Student            @relation("StudentAttendance", fields: [userId], references: [id], map: "attendance_student_fkey")
-    qrcode            QRCode?            @relation("QRCodeAttendance", fields: [qRCodeId], references: [id])
     attendanceSession AttendanceSession? @relation("SessionAttendances", fields: [attendanceSessionId], references: [id])
 
     @@unique([userId, courseId, date])
+    @@index([userId, date])
+    @@index([courseId])
+    @@index([date])
+    @@index([status])
+    @@index([markedBy])
+    @@index([attendanceSessionId])
     @@map("attendances")
-}
-
-// QR Code model
-model QRCode {
-    id          String       @id @default(cuid())
-    code        String       @unique
-    courseId    String
-    teacherId   String
-    validFrom   DateTime
-    validUntil  DateTime
-    maxUses     Int          @default(1)
-    usedCount   Int          @default(0)
-    status      QRCodeStatus @default(ACTIVE)
-    location    String?
-    description String?
-    createdAt   DateTime     @default(now())
-    updatedAt   DateTime     @updatedAt
-
-    // Relationships
-    course      Course       @relation("CourseQRCodes", fields: [courseId], references: [id])
-    teacher     User         @relation("UserQRCodes", fields: [teacherId], references: [id])
-    attendances Attendance[] @relation("QRCodeAttendance")
-    checkIns    QRCheckIn[]  @relation("QRCodeCheckIns")
-
-    @@map("qr_codes")
 }
 
 // Attendance Session model
@@ -419,27 +418,11 @@ model AttendanceSession {
     teacher     User         @relation("TeacherSessions", fields: [teacherId], references: [id])
     attendances Attendance[] @relation("SessionAttendances")
 
+    @@index([courseId])
+    @@index([teacherId])
+    @@index([date])
+    @@index([isActive])
     @@map("attendance_sessions")
-}
-
-// QR Check In model
-model QRCheckIn {
-    id          String   @id @default(cuid())
-    qrCodeId    String
-    userId      String
-    checkInTime DateTime @default(now())
-    location    String?
-    ipAddress   String?
-    userAgent   String?
-    isValid     Boolean  @default(true)
-    notes       String?
-    createdAt   DateTime @default(now())
-
-    // Relationships
-    qrcode QRCode @relation("QRCodeCheckIns", fields: [qrCodeId], references: [id])
-    user   User   @relation("UserQRCheckIns", fields: [userId], references: [id])
-
-    @@map("qr_check_ins")
 }
 
 
@@ -579,4 +562,73 @@ model EmailVerificationToken {
     user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
     @@map("email_verification_tokens")
+}
+
+
+// This file handles the AuditLog model for tracking all system actions
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  userId        String
+  action        String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, EXPORT, IMPORT, etc.
+  entity        String   // User, Course, Department, Attendance, Leave, etc.
+  entityId      String?  // ID of the affected entity
+  changes       Json?    // Before/after values for updates
+  ipAddress     String?
+  userAgent     String?
+  success       Boolean  @default(true)
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// Audit action types
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  LOGIN_FAILED
+  PASSWORD_CHANGE
+  PASSWORD_RESET
+  ROLE_CHANGE
+  PERMISSION_CHANGE
+  EXPORT
+  IMPORT
+  BULK_OPERATION
+  ATTENDANCE_MARKED
+  ATTENDANCE_MODIFIED
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  SETTINGS_CHANGED
+}
+
+
+// This file handles the Session model for user session management
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  lastActive DateTime @default(now())
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  // Relations
+  user User @relation("UserSessions", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@index([lastActive])
+  @@map("sessions")
 }

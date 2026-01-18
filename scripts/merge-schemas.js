@@ -12,6 +12,8 @@ const schemaFiles = [
     'leave.prisma',
     'notification.prisma',
     'auth.prisma',
+    'audit.prisma',
+    'session.prisma',
 ];
 
 // Read base schema (contains datasource, generator, enums)

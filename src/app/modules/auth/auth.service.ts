@@ -1,4 +1,4 @@
-import { User } from '@prisma/client';
+import { User, RefreshToken, PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import config from '../../config';
@@ -9,6 +9,8 @@ import { verifyToken } from '../../utils/verifyToken';
 import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
 import UserModel from '../user/user.model';
+
+const prisma = new PrismaClient();
 
 // Types for auth service
 interface LoginUser {
@@ -33,8 +35,56 @@ interface AuthResponse {
     refreshToken: string;
 }
 
-// In-memory storage for refresh tokens (in production, use Redis or database)
-const refreshTokens = new Set<string>();
+// Helper function to store refresh token in database
+const storeRefreshToken = async (token: string, userId: string): Promise<void> => {
+    // Calculate expiration date (30 days from now)
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    await prisma.refreshToken.create({
+        data: {
+            token,
+            userId,
+            expiresAt,
+        },
+    });
+};
+
+// Helper function to validate refresh token
+const validateRefreshToken = async (token: string): Promise<{ userId: string } | null> => {
+    const refreshToken = await prisma.refreshToken.findUnique({
+        where: { token },
+    });
+
+    if (!refreshToken) {
+        return null;
+    }
+
+    // Check if token is expired
+    if (refreshToken.expiresAt < new Date()) {
+        // Delete expired token
+        await prisma.refreshToken.delete({
+            where: { id: refreshToken.id },
+        });
+        return null;
+    }
+
+    return { userId: refreshToken.userId };
+};
+
+// Helper function to remove refresh token
+const removeRefreshToken = async (token: string): Promise<void> => {
+    await prisma.refreshToken.deleteMany({
+        where: { token },
+    });
+};
+
+// Helper function to remove all refresh tokens for a user
+const removeAllUserRefreshTokens = async (userId: string): Promise<void> => {
+    await prisma.refreshToken.deleteMany({
+        where: { userId },
+    });
+};
 
 // Register a new user
 const registerUser = async (userData: RegisterUser): Promise<AuthResponse> => {
@@ -85,8 +135,8 @@ const registerUser = async (userData: RegisterUser): Promise<AuthResponse> => {
         config.jwt_refresh_expires as string || '30d'
     );
 
-    // Store refresh token in memory (in production, use Redis or database)
-    refreshTokens.add(refreshToken);
+    // Store refresh token in database
+    await storeRefreshToken(refreshToken, user.id);
 
     // Remove password from response
     const { password, ...userWithoutPassword } = user;
@@ -138,8 +188,8 @@ const loginUser = async (loginData: LoginUser): Promise<AuthResponse> => {
         config.jwt_refresh_expires as string || '30d'
     );
 
-    // Store refresh token in memory (in production, use Redis or database)
-    refreshTokens.add(refreshToken);
+    // Store refresh token in database
+    await storeRefreshToken(refreshToken, user.id);
 
     // Remove password from response
     const { password, ...userWithoutPassword } = user;
@@ -153,9 +203,11 @@ const loginUser = async (loginData: LoginUser): Promise<AuthResponse> => {
 
 // Refresh access token
 const refreshToken = async (token: string): Promise<{ accessToken: string }> => {
-    // Check if refresh token exists
-    if (!refreshTokens.has(token)) {
-        throw new AppError(StatusCodes.UNAUTHORIZED, 'Invalid refresh token');
+    // Validate refresh token exists in database and is not expired
+    const tokenData = await validateRefreshToken(token);
+
+    if (!tokenData) {
+        throw new AppError(StatusCodes.UNAUTHORIZED, 'Invalid or expired refresh token');
     }
 
     // Verify refresh token
@@ -178,8 +230,8 @@ const refreshToken = async (token: string): Promise<{ accessToken: string }> => 
 
 // User logout
 const logoutUser = async (token: string): Promise<void> => {
-    // Remove refresh token from memory
-    refreshTokens.delete(token);
+    // Remove refresh token from database
+    await removeRefreshToken(token);
 };
 
 // Change password
@@ -209,9 +261,7 @@ const changePassword = async (userId: string, currentPassword: string, newPasswo
     });
 
     // Remove all refresh tokens for this user (force re-login)
-    // In a real implementation with database storage, you would query by userId
-    // For now, we'll clear all tokens (in production, be more specific)
-    refreshTokens.clear();
+    await removeAllUserRefreshTokens(userId);
 };
 
 // Forgot password
@@ -251,9 +301,7 @@ const resetPassword = async (token: string, newPassword: string): Promise<void> 
     });
 
     // Remove all refresh tokens for this user (force re-login)
-    // In a real implementation with database storage, you would query by userId
-    // For now, we'll clear all tokens (in production, be more specific)
-    refreshTokens.clear();
+    await removeAllUserRefreshTokens(decoded.id);
 };
 
 // Verify email

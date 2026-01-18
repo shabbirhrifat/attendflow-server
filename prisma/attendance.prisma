@@ -14,7 +14,6 @@ model Attendance {
     markedBy            String?
     createdAt           DateTime         @default(now())
     updatedAt           DateTime         @updatedAt
-    qRCodeId            String?
     attendanceSessionId String?
 
     // Relationships
@@ -22,36 +21,16 @@ model Attendance {
     course            Course             @relation("CourseAttendance", fields: [courseId], references: [id])
     marker            User?              @relation("AttendanceMarker", fields: [markedBy], references: [id])
     student           Student            @relation("StudentAttendance", fields: [userId], references: [id], map: "attendance_student_fkey")
-    qrcode            QRCode?            @relation("QRCodeAttendance", fields: [qRCodeId], references: [id])
     attendanceSession AttendanceSession? @relation("SessionAttendances", fields: [attendanceSessionId], references: [id])
 
     @@unique([userId, courseId, date])
+    @@index([userId, date])
+    @@index([courseId])
+    @@index([date])
+    @@index([status])
+    @@index([markedBy])
+    @@index([attendanceSessionId])
     @@map("attendances")
-}
-
-// QR Code model
-model QRCode {
-    id          String       @id @default(cuid())
-    code        String       @unique
-    courseId    String
-    teacherId   String
-    validFrom   DateTime
-    validUntil  DateTime
-    maxUses     Int          @default(1)
-    usedCount   Int          @default(0)
-    status      QRCodeStatus @default(ACTIVE)
-    location    String?
-    description String?
-    createdAt   DateTime     @default(now())
-    updatedAt   DateTime     @updatedAt
-
-    // Relationships
-    course      Course       @relation("CourseQRCodes", fields: [courseId], references: [id])
-    teacher     User         @relation("UserQRCodes", fields: [teacherId], references: [id])
-    attendances Attendance[] @relation("QRCodeAttendance")
-    checkIns    QRCheckIn[]  @relation("QRCodeCheckIns")
-
-    @@map("qr_codes")
 }
 
 // Attendance Session model
@@ -73,25 +52,9 @@ model AttendanceSession {
     teacher     User         @relation("TeacherSessions", fields: [teacherId], references: [id])
     attendances Attendance[] @relation("SessionAttendances")
 
+    @@index([courseId])
+    @@index([teacherId])
+    @@index([date])
+    @@index([isActive])
     @@map("attendance_sessions")
-}
-
-// QR Check In model
-model QRCheckIn {
-    id          String   @id @default(cuid())
-    qrCodeId    String
-    userId      String
-    checkInTime DateTime @default(now())
-    location    String?
-    ipAddress   String?
-    userAgent   String?
-    isValid     Boolean  @default(true)
-    notes       String?
-    createdAt   DateTime @default(now())
-
-    // Relationships
-    qrcode QRCode @relation("QRCodeCheckIns", fields: [qrCodeId], references: [id])
-    user   User   @relation("UserQRCheckIns", fields: [userId], references: [id])
-
-    @@map("qr_check_ins")
 }

@@ -1,0 +1,44 @@
+// This file handles the AuditLog model for tracking all system actions
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  userId        String
+  action        String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, EXPORT, IMPORT, etc.
+  entity        String   // User, Course, Department, Attendance, Leave, etc.
+  entityId      String?  // ID of the affected entity
+  changes       Json?    // Before/after values for updates
+  ipAddress     String?
+  userAgent     String?
+  success       Boolean  @default(true)
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// Audit action types
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  LOGIN_FAILED
+  PASSWORD_CHANGE
+  PASSWORD_RESET
+  ROLE_CHANGE
+  PERMISSION_CHANGE
+  EXPORT
+  IMPORT
+  BULK_OPERATION
+  ATTENDANCE_MARKED
+  ATTENDANCE_MODIFIED
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  SETTINGS_CHANGED
+}

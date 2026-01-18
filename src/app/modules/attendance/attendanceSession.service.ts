@@ -9,8 +9,6 @@ import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
 import { CourseModel } from '../course';
 import { TeacherModel } from '../teacher/teacher.model';
-import { QRService } from '../qr/qr.service';
-import { QRTokenModel } from '../qr/qr.model';
 
 // Create attendance session
 const createAttendanceSession = async (payload: IAttendanceSessionCreate): Promise<IAttendanceSession> => {
@@ -65,34 +63,33 @@ const getSessionStats = async (sessionId: string): Promise<IAttendanceSessionSta
         throw new AppError(StatusCodes.NOT_FOUND, 'Session not found');
     }
 
-    // Get QR tokens for this session's course and time range
     const sessionStart = new Date(session.startTime);
     const sessionEnd = session.endTime || new Date();
 
-    const { tokens } = await QRService.getQRTokens({
+    // Get attendance records for this session
+    const { AttendanceModel } = require('./attendance.model');
+
+    // Count attendance by status for this session's course and date
+    const sessionDate = new Date(session.date);
+    const startOfDay = new Date(sessionDate.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(sessionDate.setHours(23, 59, 59, 999));
+
+    // Get all attendance records for this course on this date
+    const attendanceRecords = await AttendanceModel.findMany({
         courseId: session.courseId,
-        startDate: sessionStart.toISOString(),
-        endDate: sessionEnd.toISOString(),
+        startDate: startOfDay.toISOString(),
+        endDate: endOfDay.toISOString(),
         page: 1,
         limit: 1000,
     });
 
-    // Get check-ins for this session's time range
-    const { checkIns } = await QRService.getQRCheckIns({
-        startDate: sessionStart.toISOString(),
-        endDate: sessionEnd.toISOString(),
-        page: 1,
-        limit: 1000,
-    });
-
-    // Calculate unique students
-    const uniqueStudents = new Set(checkIns.map(checkIn => checkIn.userId));
+    const attendances = attendanceRecords.data || [];
 
     return {
         sessionId: session.id,
-        totalTokens: tokens.length,
-        totalCheckIns: checkIns.length,
-        uniqueStudents: uniqueStudents.size,
+        totalTokens: 0, // QR tokens removed
+        totalCheckIns: attendances.length,
+        uniqueStudents: attendances.length,
         sessionStart: session.startTime,
         sessionEnd: session.endTime,
         isActive: session.isActive,
@@ -118,12 +115,6 @@ const endSession = async (sessionId: string, teacherId: string): Promise<IAttend
     const result = await AttendanceSessionModel.update(sessionId, {
         endTime: new Date(),
         isActive: false,
-    });
-
-    // Expire all active QR tokens for this session
-    await QRService.expireQRTokens({
-        courseId: session.courseId,
-        teacherId: session.teacherId,
     });
 
     return result;

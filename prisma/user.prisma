@@ -32,8 +32,6 @@ model User {
     // Attendance relationships
     attendanceRecords Attendance[]        @relation("UserAttendance")
     markedAttendances Attendance[]        @relation("AttendanceMarker")
-    qrCheckIns        QRCheckIn[]         @relation("UserQRCheckIns")
-    qrCodes           QRCode[]            @relation("UserQRCodes")
     teacherSessions   AttendanceSession[] @relation("TeacherSessions")
 
     // Leave relationships
@@ -46,7 +44,12 @@ model User {
     refreshTokens           RefreshToken[]
     passwordResetTokens     PasswordResetToken[]
     emailVerificationTokens EmailVerificationToken[]
+    sessions                Session[]         @relation("UserSessions")
 
+    @@index([role])
+    @@index([status])
+    @@index([departmentId])
+    @@index([createdAt])
     @@map("users")
 }
 
@@ -73,6 +76,10 @@ model Student {
     leaveRequests     LeaveRequest[] @relation("StudentLeaveRequests")
     leaveBalance      LeaveBalance?  @relation("StudentLeaveBalance")
 
+    @@index([batchId])
+    @@index([departmentId])
+    @@index([isActive])
+    @@index([studentId])
     @@map("students")
 }
 
@@ -97,5 +104,8 @@ model Teacher {
     leaveBalance      LeaveBalance?  @relation("TeacherLeaveBalance")
     headedDepartments Department[]   @relation("DepartmentHead")
 
+    @@index([departmentId])
+    @@index([isActive])
+    @@index([employeeId])
     @@map("teachers")
 }

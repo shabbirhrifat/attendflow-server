@@ -1,9 +1,12 @@
 import express, { Application, NextFunction, Request, Response } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import allRoutes from './app/routes';
 import path from 'path';
 import globalErrorHandler from './app/middlewares/globalErrorHandler';
 import './app/config/globalErrorMap';
+import { auditMiddleware } from './app/modules/audit/audit.middleware';
 
 const app: Application = express();
 
@@ -51,14 +54,75 @@ const requestLogger = (req: Request, res: Response, next: NextFunction) => {
 };
 
 app.use(requestLogger);
+
+// Security headers with Helmet
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  crossOriginEmbedderPolicy: false, // Allow for development
+}));
+
 // Middleware setup
 app.use(express.json());
+
+// Improved CORS configuration
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:5174'];
+
 app.use(
   cors({
-    origin: ['http://localhost:5173', "http://localhost:3000"],
+    origin: allowedOrigins,
     credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
+
+// Rate limiting configuration
+// Auth limiter - 5 attempts per 15 minutes for sensitive auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per window
+  message: {
+    success: false,
+    message: 'Too many attempts from this IP, please try again after 15 minutes',
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+
+// General API limiter - 100 requests per minute
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 100, // 100 requests per minute
+  message: {
+    success: false,
+    message: 'Too many requests from this IP, please try again later',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiters to auth routes
+app.use('/api/v1/auth/login', authLimiter);
+app.use('/api/v1/auth/register', authLimiter);
+app.use('/api/v1/auth/forgot-password', authLimiter);
+app.use('/api/v1/auth/reset-password', authLimiter);
+
+// Apply general rate limiter to all API routes
+app.use('/api/v1', apiLimiter);
+
+// Apply audit logging middleware (logs all modifications to sensitive endpoints)
+// Excludes health check and public endpoints from audit logging
+const auditExcludedPaths = ['/health', '/ping', '/public'];
+app.use('/api/v1', auditMiddleware(auditExcludedPaths));
 
 // Serve static files from the public directory
 const publicDirPath = path.join(__dirname, '..', 'public');

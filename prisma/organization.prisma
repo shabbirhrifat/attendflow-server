@@ -18,6 +18,8 @@ model Batch {
     courses   Course[]
     schedules ClassSchedule[]
 
+    @@index([year])
+    @@index([isActive])
     @@map("batches")
 }
 
@@ -41,6 +43,7 @@ model Department {
     semesters Semester[]
     head      Teacher?   @relation("DepartmentHead", fields: [headId], references: [id])
 
+    @@index([isActive])
     @@map("departments")
 }
 
@@ -110,9 +113,14 @@ model Course {
     enrollments        CourseEnrollment[]
     attendanceRecords  Attendance[]        @relation("CourseAttendance")
     schedules          ClassSchedule[]
-    qrcodes            QRCode[]            @relation("CourseQRCodes")
     attendanceSessions AttendanceSession[] @relation("CourseSessions")
 
+    @@index([departmentId])
+    @@index([teacherId])
+    @@index([batchId])
+    @@index([semesterId])
+    @@index([isActive])
+    @@index([code])
     @@map("courses")
 }
 
