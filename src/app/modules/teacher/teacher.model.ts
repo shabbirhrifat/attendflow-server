@@ -135,28 +135,30 @@ export const TeacherModel = {
             select: { id: true, name: true }
         });
 
-        // Transform teachersByDepartment to Record<string, number>
-        const teachersByDepartmentRecord: Record<string, number> = {};
-        teachersByDepartment.forEach(d => {
-            if (d.departmentId) {
-                const deptName = departments.find(dept => dept.id === d.departmentId)?.name || 'Unknown';
-                teachersByDepartmentRecord[deptName] = d._count._all;
-            }
+        // Transform teachersByDepartment to array
+        const teachersByDepartmentArray = teachersByDepartment.map(d => {
+            const department = departments.find(dept => dept.id === d.departmentId);
+            return {
+                departmentId: d.departmentId || 'unknown',
+                departmentName: department?.name || 'Unknown',
+                count: d._count._all,
+                percentage: totalTeachers > 0 ? (d._count._all / totalTeachers) * 100 : 0
+            };
         });
 
-        // Transform teachersByDesignation to Record<string, number>
-        const teachersByDesignationRecord: Record<string, number> = {};
-        teachersByDesignation.forEach(d => {
-            const designation = d.designation || 'Unknown';
-            teachersByDesignationRecord[designation] = d._count._all;
-        });
+        // Transform teachersByDesignation to array
+        const teachersByDesignationArray = teachersByDesignation.map(d => ({
+            designation: d.designation || 'Unknown',
+            count: d._count._all,
+            percentage: totalTeachers > 0 ? (d._count._all / totalTeachers) * 100 : 0
+        }));
 
         return {
             totalTeachers,
             activeTeachers,
             inactiveTeachers,
-            teachersByDepartment: teachersByDepartmentRecord,
-            teachersByDesignation: teachersByDesignationRecord,
+            teachersByDepartment: teachersByDepartmentArray,
+            teachersByDesignation: teachersByDesignationArray,
         };
     },
 };

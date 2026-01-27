@@ -35,12 +35,13 @@ export const LeaveModel = {
 
     // Get all leaves with optional filters
     findMany: async (filters: any = {}) => {
-        const { userId, status, startDate, endDate, page = 1, limit = 10 } = filters;
+        const { userId, status, leaveType, startDate, endDate, page = 1, limit = 10 } = filters;
 
         const where: any = {};
 
         if (userId) where.userId = userId;
         if (status) where.status = status;
+        if (leaveType) where.type = leaveType;
 
         if (startDate || endDate) {
             where.startDate = {};
@@ -48,7 +49,10 @@ export const LeaveModel = {
             if (endDate) where.startDate.lte = new Date(endDate);
         }
 
-        const skip = (page - 1) * limit;
+        // Convert page and limit to integers
+        const pageNum = parseInt(page as string, 10) || 1;
+        const limitNum = parseInt(limit as string, 10) || 10;
+        const skip = (pageNum - 1) * limitNum;
 
         return await prisma.leaveRequest.findMany({
             where,
@@ -57,7 +61,7 @@ export const LeaveModel = {
             },
             orderBy: { createdAt: 'desc' },
             skip,
-            take: limit,
+            take: limitNum,
         });
     },
 

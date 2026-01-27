@@ -11,7 +11,7 @@ async function sendEmailOtp(message: string, email: string) {
       },
     });
 
-    // Professional HTML email template for Plumber Manager
+    // Professional HTML email template for AttendFlow
     const htmlTemplate = `
       <!DOCTYPE html>
       <html lang="en">
@@ -33,18 +33,18 @@ async function sendEmailOtp(message: string, email: string) {
       <body>
         <div class="container">
           <div class="header">
-            <h1>Plumber Manager</h1>
+            <h1>AttendFlow</h1>
           </div>
           <div class="content">
             <h2>Your One-Time Password (OTP)</h2>
             <p class="message">Please use the following OTP to complete your action. This code is valid for 2.5 minutes.</p>
             <div class="otp">${message}</div>
             <p class="message">If you did not request this OTP, please ignore this email or contact our support team.</p>
-            <a href="https://plumbermanager.com/support" class="button">Contact Support</a>
+            <a href="https://attendflow.com/support" class="button">Contact Support</a>
           </div>
           <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} Plumber Manager. All rights reserved.</p>
-            <p>123 Plumbing St, Suite 100, City, Country</p>
+            <p>&copy; ${new Date().getFullYear()} AttendFlow. All rights reserved.</p>
+            <p>Your Campus, Smart Attendance Management</p>
           </div>
         </div>
       </body>
@@ -53,10 +53,10 @@ async function sendEmailOtp(message: string, email: string) {
 
     // Email options
     const mailOptions = {
-      from: `"Plumber Manager" <${config.email_user}>`,
+      from: `"AttendFlow" <${config.email_user}>`,
       to: email,
-      subject: 'Your Plumber Manager OTP Code',
-      text: `Your OTP code is ${message}. It is valid for 10 minutes. If you did not request this, please contact support at https://plumbermanager.com/support.`,
+      subject: 'Your AttendFlow OTP Code',
+      text: `Your OTP code is ${message}. It is valid for 10 minutes. If you did not request this, please contact support at https://attendflow.com/support.`,
       html: htmlTemplate,
     };
     const info = await transporter.sendMail(mailOptions);

@@ -45,6 +45,7 @@ model User {
     passwordResetTokens     PasswordResetToken[]
     emailVerificationTokens EmailVerificationToken[]
     sessions                Session[]         @relation("UserSessions")
+    auditLogs               AuditLog[]
 
     @@index([role])
     @@index([status])

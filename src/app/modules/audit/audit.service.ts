@@ -72,6 +72,12 @@ export const getAuditLogs = async (
     where.success = filters.success;
   }
 
+  // Build orderBy based on filters
+  const orderBy: any = {};
+  const sortBy = filters.sortBy || 'createdAt';
+  const sortOrder = filters.sortOrder || 'desc';
+  orderBy[sortBy] = sortOrder;
+
   // Get total count
   const total = await prisma.auditLog.count({ where });
 
@@ -88,9 +94,7 @@ export const getAuditLogs = async (
         },
       },
     },
-    orderBy: {
-      createdAt: 'desc',
-    },
+    orderBy,
     skip: (page - 1) * limit,
     take: limit,
   });

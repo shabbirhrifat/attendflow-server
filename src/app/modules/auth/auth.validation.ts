@@ -19,6 +19,24 @@ const userRegistrationValidationSchema = z.object({
   }),
 });
 
+// Admin/Teacher registration validation schema (more restrictive - only allows ADMIN and TEACHER roles)
+const adminRegistrationValidationSchema = z.object({
+  body: z.object({
+    email: z.string().email('Invalid email format'),
+    username: z.string().min(3, 'Username must be at least 3 characters').optional(),
+    name: z.string().min(2, 'Name must be at least 2 characters'),
+    password: z.string().min(6, 'Password must be at least 6 characters'),
+    role: z.enum(['ADMIN', 'TEACHER'], {
+      errorMap: () => ({ message: 'Role must be either ADMIN or TEACHER for admin registration' }),
+    }),
+    phone: z.string().optional(),
+    departmentId: z.string().optional(),
+    employeeId: z.string().optional(),
+    designation: z.string().optional(),
+    specialization: z.string().optional(),
+  }),
+});
+
 // User login validation schema
 const userLoginValidationSchema = z.object({
   body: z.object({
@@ -75,6 +93,7 @@ const emailVerificationValidationSchema = z.object({
 
 export const AuthValidation = {
   userRegistrationValidationSchema,
+  adminRegistrationValidationSchema,
   userLoginValidationSchema,
   changePasswordValidationSchema,
   forgotPasswordValidationSchema,

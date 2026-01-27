@@ -246,8 +246,17 @@ export interface ITeacherStats {
     totalTeachers: number;
     activeTeachers: number;
     inactiveTeachers: number;
-    teachersByDepartment: Record<string, number>;
-    teachersByDesignation: Record<string, number>;
+    teachersByDepartment: Array<{
+        departmentId: string;
+        departmentName: string;
+        count: number;
+        percentage: number;
+    }>;
+    teachersByDesignation: Array<{
+        designation: string;
+        count: number;
+        percentage: number;
+    }>;
 }
 
 // Course statistics for teacher

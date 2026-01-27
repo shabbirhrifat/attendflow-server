@@ -4,9 +4,6 @@ import {
     IAttendanceCreate,
     IAttendanceUpdate,
     IBulkAttendanceCreate,
-    IQRCode,
-    IQRCodeCreate,
-    IQRCodeCheckIn,
     IAttendanceSession,
     IAttendanceSessionCreate,
     IAttendanceFilters,
@@ -14,8 +11,7 @@ import {
     ICourseAttendanceStats,
     IStudentAttendanceStats,
     IAttendanceDashboard,
-    AttendanceStatus,
-    QRCodeStatus
+    AttendanceStatus
 } from './attendance.interface';
 
 // Attendance model operations
@@ -349,90 +345,6 @@ export const AttendanceModel = {
             attendancePercentage,
             monthlyBreakdown,
         };
-    },
-};
-
-// QR Code model operations (simplified for now since QRCode model is not in main schema)
-export const QRCodeModel = {
-    // Create a new QR code (stored as a simple record for now)
-    create: async (data: IQRCodeCreate) => {
-        // For now, we'll store QR codes as a simple object in memory or use a different approach
-        // In a real implementation, you would need to add the QRCode model to the main schema
-        return {
-            id: `qr_${Date.now()}`,
-            code: `QR_${Math.random().toString(36).substring(2, 15)}`,
-            ...data,
-            status: 'ACTIVE' as QRCodeStatus,
-            usedCount: 0,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        } as IQRCode;
-    },
-
-    // Find QR code by code string
-    findByCode: async (code: string) => {
-        // This is a placeholder implementation
-        // In a real implementation, you would query the database
-        return null;
-    },
-
-    // Process QR code check-in
-    processCheckIn: async (data: IQRCodeCheckIn) => {
-        const { qrCode: code, userId, location } = data;
-
-        // For now, we'll just create an attendance record directly
-        // In a real implementation, you would validate the QR code first
-
-        // Find if there's an active session for this course
-        // For simplicity, we'll assume the course ID is embedded in the QR code
-        const courseId = code.split('_')[1] || '';
-
-        if (!courseId) {
-            throw new Error('Invalid QR code format');
-        }
-
-        // Check if user already has attendance for this course today
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        const existingAttendance = await prisma.attendance.findFirst({
-            where: {
-                userId,
-                courseId,
-                date: {
-                    gte: today,
-                    lt: tomorrow,
-                },
-            },
-        });
-
-        if (existingAttendance) {
-            throw new Error('Attendance already marked for this course today');
-        }
-
-        // Create attendance record
-        const attendance = await prisma.attendance.create({
-            data: {
-                userId,
-                courseId,
-                date: today,
-                status: 'PRESENT',
-                checkIn: new Date(),
-                notes: location ? `Checked in at ${location}` : undefined,
-            },
-            include: {
-                user: {
-                    select: { id: true, name: true, email: true },
-                },
-                course: {
-                    select: { id: true, title: true, code: true },
-                },
-            },
-        });
-
-        return attendance;
     },
 };
 

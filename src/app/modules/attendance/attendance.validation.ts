@@ -3,9 +3,6 @@ import { z } from "zod";
 // Attendance status enum
 const attendanceStatusEnum = z.enum(['PRESENT', 'ABSENT', 'LATE', 'EXCUSED']);
 
-// QR Code status enum
-const qrCodeStatusEnum = z.enum(['ACTIVE', 'EXPIRED', 'USED']);
-
 // Create attendance validation schema
 const createAttendanceSchema = z.object({
     body: z.object({
@@ -60,35 +57,6 @@ const bulkAttendanceSchema = z.object({
     }),
 });
 
-// QR Code creation validation schema
-const createQRCodeSchema = z.object({
-    body: z.object({
-        courseId: z.string().min(1, 'Course ID is required'),
-        teacherId: z.string().min(1, 'Teacher ID is required'),
-        validFrom: z.string().refine((val) => {
-            const date = new Date(val);
-            return !isNaN(date.getTime());
-        }, 'Invalid valid from date format'),
-        validUntil: z.string().refine((val) => {
-            const date = new Date(val);
-            return !isNaN(date.getTime());
-        }, 'Invalid valid until date format'),
-        maxUses: z.number().int().min(1).default(1),
-        location: z.string().optional(),
-        description: z.string().optional(),
-    }),
-});
-
-// QR Code check-in validation schema
-const qrCodeCheckInSchema = z.object({
-    body: z.object({
-        qrCode: z.string().min(1, 'QR code is required'),
-        userId: z.string().min(1, 'User ID is required'),
-        location: z.string().optional(),
-    }),
-});
-
-
 // Attendance session creation validation schema
 const createAttendanceSessionSchema = z.object({
     body: z.object({
@@ -140,17 +108,6 @@ const attendanceFiltersSchema = z.object({
     }),
 });
 
-// QR Code filters validation schema
-const qrCodeFiltersSchema = z.object({
-    query: z.object({
-        courseId: z.string().optional(),
-        teacherId: z.string().optional(),
-        status: qrCodeStatusEnum.optional(),
-        page: z.string().regex(/^\d+$/, 'Page must be a number').optional(),
-        limit: z.string().regex(/^\d+$/, 'Limit must be a number').optional(),
-    }),
-});
-
 // Session filters validation schema
 const sessionFiltersSchema = z.object({
     query: z.object({
@@ -166,11 +123,8 @@ export const attendanceValidation = {
     createAttendanceSchema,
     updateAttendanceSchema,
     bulkAttendanceSchema,
-    createQRCodeSchema,
-    qrCodeCheckInSchema,
     createAttendanceSessionSchema,
     idParamSchema,
     attendanceFiltersSchema,
-    qrCodeFiltersSchema,
     sessionFiltersSchema,
 };

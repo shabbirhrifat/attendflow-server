@@ -1,10 +1,7 @@
-import { User, Course, AttendanceSession, QRCode, QRCheckIn } from '@prisma/client';
+import { User, Course, AttendanceSession } from '@prisma/client';
 
 // Attendance status type
 export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
-
-// QR Code status type
-export type QRCodeStatus = 'ACTIVE' | 'EXPIRED' | 'USED';
 
 // Base attendance interface
 export interface IAttendance {
@@ -17,7 +14,6 @@ export interface IAttendance {
     checkOut?: Date;
     notes?: string;
     markedBy?: string;
-    qrCodeId?: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -28,7 +24,6 @@ export interface IAttendanceWithRelations extends IAttendance {
     course: Course;
     student: any; // Using any since Student type is not exported from Prisma client
     marker?: User;
-    qrCode?: IQRCode;
 }
 
 // Create attendance interface
@@ -41,7 +36,6 @@ export interface IAttendanceCreate {
     checkOut?: Date;
     notes?: string;
     markedBy?: string;
-    qrCodeId?: string;
 }
 
 // Update attendance interface
@@ -65,43 +59,6 @@ export interface IBulkAttendanceCreate {
     markedBy: string;
 }
 
-// QR Code interface
-export interface IQRCode {
-    id: string;
-    code: string;
-    attendanceSessionId: string;
-    validFrom: Date;
-    validUntil: Date;
-    maxUses: number;
-    usedCount: number;
-    status: QRCodeStatus;
-    location?: string;
-    createdAt: Date;
-    updatedAt: Date;
-}
-
-// QR Code with relationships
-export interface IQRCodeWithRelations extends IQRCode {
-    attendanceSession: AttendanceSession;
-    checkins: QRCheckIn[];
-}
-
-// Create QR Code interface
-export interface IQRCodeCreate {
-    attendanceSessionId: string;
-    validFrom: Date;
-    validUntil: Date;
-    maxUses?: number;
-    location?: string;
-}
-
-// QR Code check-in interface
-export interface IQRCodeCheckIn {
-    qrCode: string;
-    userId: string;
-    location?: string;
-}
-
 // Attendance Session interface
 export interface IAttendanceSession {
     id: string;
@@ -121,7 +78,6 @@ export interface IAttendanceSession {
 export interface IAttendanceSessionWithRelations extends IAttendanceSession {
     course: Course;
     teacher: User;
-    qrCodes: IQRCode[];
 }
 
 // Create attendance session interface

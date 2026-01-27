@@ -63,6 +63,8 @@ export interface IAuditLogFilter {
   startDate?: Date;
   endDate?: Date;
   success?: boolean;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface IAuditLogResponse {
@@ -71,4 +73,7 @@ export interface IAuditLogResponse {
   data?: any;
   logs?: any[];
   total?: number;
+  page?: number;
+  limit?: number;
+  totalPages?: number;
 }

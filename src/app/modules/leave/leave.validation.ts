@@ -190,6 +190,7 @@ const leaveFiltersSchema = z.object({
         teacherId: z.string().optional(),
         status: leaveStatusEnum.optional(),
         type: leaveTypeEnum.optional(),
+        leaveType: leaveTypeEnum.optional(),
         startDate: z.string().refine((val) => {
             const date = new Date(val);
             return !isNaN(date.getTime());

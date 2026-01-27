@@ -27,6 +27,8 @@ export const getAuditLogs = async (
       startDate,
       endDate,
       success,
+      sortBy,
+      sortOrder,
       page = '1',
       limit = '50',
     } = req.query;
@@ -40,6 +42,8 @@ export const getAuditLogs = async (
     if (startDate) filters.startDate = new Date(startDate as string);
     if (endDate) filters.endDate = new Date(endDate as string);
     if (success !== undefined) filters.success = success === 'true';
+    if (sortBy) filters.sortBy = sortBy as string;
+    if (sortOrder) filters.sortOrder = sortOrder as 'asc' | 'desc';
 
     const result = await AuditService.getAuditLogs(
       filters,

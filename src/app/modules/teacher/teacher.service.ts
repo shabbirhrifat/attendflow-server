@@ -24,6 +24,7 @@ import {
 import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
 import { generateTeacherId, generateTeacherUserId } from '../../utils/idGenerator';
+import { hashInfo } from '../../utils/hashInfo';
 import prisma from '../../config/prisma';
 import QueryBuilder from '../../builder/QueryBuilder';
 
@@ -57,13 +58,16 @@ export const createTeacherProfile = async (data: ITeacherCreate): Promise<ITeach
             // Create new user with generated ID
             userId = generateTeacherUserId(data.name);
 
+            // Hash password before creating user
+            const hashedPassword = await hashInfo(data.password || 'changeme123');
+
             await prisma.user.create({
                 data: {
                     id: userId,
                     name: data.name,
                     email: data.email, // Use provided email (REQUIRED)
                     username: userId,
-                    password: data.password || 'changeme123', // Use provided password or default
+                    password: hashedPassword, // Use hashed password
                     role: 'TEACHER',
                     status: 'ACTIVE',
                     departmentId: data.departmentId, // Optional - can be null
