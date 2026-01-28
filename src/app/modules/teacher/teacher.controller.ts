@@ -80,6 +80,17 @@ export const getTeacherStats = catchAsync(async (req: Request, res: Response) =>
     });
 });
 
+export const getTeacherStatistics = catchAsync(async (req: Request, res: Response) => {
+    const { teacherId } = req.params;
+    const result = await TeacherService.getTeacherStatistics(teacherId);
+
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        message: 'Teacher statistics retrieved successfully',
+        data: result,
+    });
+});
+
 // Attendance controllers
 export const markAttendance = catchAsync(async (req: Request, res: Response) => {
     const { teacherId } = req.params;
@@ -206,6 +217,19 @@ export const getTeacherSchedules = catchAsync(async (req: Request, res: Response
     });
 });
 
+export const getTeacherSchedulesByUserId = catchAsync(async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    // Get teacher profile by user ID first, then get schedules
+    const teacherProfile = await TeacherService.getTeacherProfileByUserId(userId);
+    const result = await TeacherService.getTeacherSchedules(teacherProfile.id);
+
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        message: 'Teacher schedules retrieved successfully',
+        data: result,
+    });
+});
+
 export const getTodaySchedule = catchAsync(async (req: Request, res: Response) => {
     const { teacherId } = req.params;
     const result = await TeacherService.getTodaySchedule(teacherId);
@@ -306,6 +330,19 @@ export const getTeacherDashboard = catchAsync(async (req: Request, res: Response
     });
 });
 
+export const getTeacherDashboardByUserId = catchAsync(async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    // Get teacher profile by user ID first, then get dashboard
+    const teacherProfile = await TeacherService.getTeacherProfileByUserId(userId);
+    const result = await TeacherService.getTeacherDashboard(teacherProfile.id);
+
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        message: 'Teacher dashboard retrieved successfully',
+        data: result,
+    });
+});
+
 // Teacher assignment controllers
 export const assignTeacherToDepartment = catchAsync(async (req: Request, res: Response) => {
     const { teacherId } = req.params;
@@ -361,6 +398,7 @@ export const TeacherController = {
     deleteTeacherProfile,
     getAllTeachers,
     getTeacherStats,
+    getTeacherStatistics,
 
     // Attendance controllers
     markAttendance,
@@ -376,6 +414,7 @@ export const TeacherController = {
     // Class schedule controllers
     createClassSchedule,
     getTeacherSchedules,
+    getTeacherSchedulesByUserId,
     getTodaySchedule,
     updateClassSchedule,
     deleteClassSchedule,
@@ -389,6 +428,7 @@ export const TeacherController = {
 
     // Dashboard controller
     getTeacherDashboard,
+    getTeacherDashboardByUserId,
 
     // Teacher assignment controllers
     assignTeacherToDepartment,

@@ -147,6 +147,22 @@ router.get(
 );
 
 /**
+ * @description get student attendance by user ID
+ * @param {string} path - /api/student/user/:userId/attendance
+ * @param {function} middleware - ['validateRequest(studentValidation.userIdParamSchema)', 'validateRequest(studentValidation.attendanceViewSchema)']
+ * @param {function} controller - ['getStudentAttendanceByUserId']
+ * @returns {object} - router
+ * @access private
+ * @method GET
+ */
+router.get(
+    "/user/:userId/attendance",
+    validateRequest(studentValidation.userIdParamSchema),
+    validateRequest(studentValidation.attendanceViewSchema),
+    studentControllers.getStudentAttendanceByUserId
+);
+
+/**
  * @description get student attendance summary
  * @param {string} path - /api/student/:id/attendance-summary
  * @param {function} middleware - ['validateRequest(studentValidation.studentIdParamSchema)']
@@ -206,6 +222,36 @@ router.get(
     "/dashboard/:id",
     validateRequest(studentValidation.studentIdParamSchema),
     studentControllers.getStudentDashboard
+);
+
+/**
+ * @description get student dashboard by user ID
+ * @param {string} path - /api/student/user/:userId/dashboard
+ * @param {function} middleware - ['validateRequest(studentValidation.userIdParamSchema)']
+ * @param {function} controller - ['getStudentDashboardByUserId']
+ * @returns {object} - router
+ * @access private
+ * @method GET
+ */
+router.get(
+    "/user/:userId/dashboard",
+    validateRequest(studentValidation.userIdParamSchema),
+    studentControllers.getStudentDashboardByUserId
+);
+
+/**
+ * @description get student profile by user ID
+ * @param {string} path - /api/student/user/:userId/profile
+ * @param {function} middleware - ['validateRequest(studentValidation.userIdParamSchema)']
+ * @param {function} controller - ['getStudentProfileByUserId']
+ * @returns {object} - router
+ * @access private
+ * @method GET
+ */
+router.get(
+    "/user/:userId/profile",
+    validateRequest(studentValidation.userIdParamSchema),
+    studentControllers.getStudentProfileByUserId
 );
 
 export const studentRoutes = router;

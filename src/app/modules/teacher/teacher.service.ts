@@ -239,6 +239,57 @@ export const getTeacherStats = async (): Promise<ITeacherStats> => {
     }
 };
 
+// Get individual teacher statistics
+export const getTeacherStatistics = async (teacherId: string): Promise<{
+    totalCourses: number;
+    totalStudents: number;
+    totalClasses: number;
+    thisWeekClasses: number;
+}> => {
+    try {
+        // Verify teacher exists
+        const teacher = await TeacherModel.findById(teacherId);
+        if (!teacher) {
+            throw new AppError(StatusCodes.NOT_FOUND, 'Teacher profile not found');
+        }
+
+        // Get all courses assigned to this teacher
+        const classSchedules = await ClassScheduleModel.findByTeacherId(teacherId);
+
+        // Get unique courses
+        const uniqueCourses = new Set(classSchedules.map((schedule: any) => schedule.courseId));
+
+        // Get total students (sum of students in all batches)
+        const batches = classSchedules.map((schedule: any) => schedule.batchId).filter(Boolean);
+        const uniqueBatches = [...new Set(batches)];
+
+        // Calculate total students (this would need batch model to get student count)
+        // For now, returning a placeholder
+        let totalStudents = 0;
+        // TODO: Query batch model to get actual student count
+
+        // Get this week's classes (classes scheduled from start of week to today)
+        const today = new Date();
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay()); // Start from Sunday
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        const thisWeekClasses = classSchedules.filter((schedule: any) => {
+            const scheduleDate = new Date(schedule.date);
+            return scheduleDate >= startOfWeek && scheduleDate <= today;
+        }).length;
+
+        return {
+            totalCourses: uniqueCourses.size,
+            totalStudents,
+            totalClasses: classSchedules.length,
+            thisWeekClasses,
+        };
+    } catch (error) {
+        throw error;
+    }
+};
+
 // Attendance services
 export const markAttendance = async (teacherId: string, data: IMarkAttendance): Promise<IAttendanceRecord> => {
     try {
@@ -737,6 +788,7 @@ export const TeacherService = {
     deleteTeacherProfile,
     getAllTeachers,
     getTeacherStats,
+    getTeacherStatistics,
 
     // Attendance services
     markAttendance,

@@ -38,6 +38,22 @@ router.get(
 );
 
 /**
+ * @description get teacher statistics by teacher ID
+ * @param {string} path - /api/teacher/:teacherId/statistics
+ * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)', 'validateRequest(TeacherValidation.teacherIdParam)']
+ * @param {function} controller - ['getTeacherStatistics']
+ * @returns {object} - router
+ * @access private - ['TEACHER', 'ADMIN']
+ * @method GET
+ */
+router.get(
+    '/:teacherId/statistics',
+    AuthorizeRequest('TEACHER', 'ADMIN'),
+    validateRequest(TeacherValidation.teacherIdParam),
+    TeacherController.getTeacherStatistics
+);
+
+/**
  * @description get teacher profile
  * @param {string} path - /api/teacher/:teacherId
  * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)', 'validateRequest(TeacherValidation.teacherIdParam)']
@@ -415,6 +431,38 @@ router.get(
     AuthorizeRequest('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.userIdParam),
     TeacherController.getTeacherProfileByUserId
+);
+
+/**
+ * @description get teacher dashboard by user ID
+ * @param {string} path - /api/teacher/user/:userId/dashboard
+ * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)', 'validateRequest(TeacherValidation.userIdParam)']
+ * @param {function} controller - ['getTeacherDashboardByUserId']
+ * @returns {object} - router
+ * @access private - ['TEACHER', 'ADMIN']
+ * @method GET
+ */
+router.get(
+    '/user/:userId/dashboard',
+    AuthorizeRequest('TEACHER', 'ADMIN'),
+    validateRequest(TeacherValidation.userIdParam),
+    TeacherController.getTeacherDashboardByUserId
+);
+
+/**
+ * @description get teacher schedules by user ID
+ * @param {string} path - /api/teacher/user/:userId/schedules
+ * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)', 'validateRequest(TeacherValidation.userIdParam)']
+ * @param {function} controller - ['getTeacherSchedulesByUserId']
+ * @returns {object} - router
+ * @access private - ['TEACHER', 'ADMIN']
+ * @method GET
+ */
+router.get(
+    '/user/:userId/schedules',
+    AuthorizeRequest('TEACHER', 'ADMIN'),
+    validateRequest(TeacherValidation.userIdParam),
+    TeacherController.getTeacherSchedulesByUserId
 );
 
 /**

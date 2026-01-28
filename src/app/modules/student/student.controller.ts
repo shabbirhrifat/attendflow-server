@@ -78,6 +78,15 @@ const getStudentAttendance = catchAsync(async (req: Request, res: Response) => {
     sendPaginatedResponse(res, "attendances", result.data, result.meta, "Student attendance retrieved successfully");
 });
 
+/** Get Student Attendance by User ID */
+const getStudentAttendanceByUserId = catchAsync(async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    // Get student profile by user ID first, then get attendance
+    const studentProfile = await studentServices.getStudentByUserId(userId);
+    const result = await studentServices.getStudentAttendance(studentProfile.id, req.query);
+    sendPaginatedResponse(res, "attendances", result.data, result.meta, "Student attendance retrieved successfully");
+});
+
 /** Get Student Attendance Summary */
 const getStudentAttendanceSummary = catchAsync(async (req: Request, res: Response) => {
     const { id } = req.params;
@@ -119,6 +128,29 @@ const getStudentDashboard = catchAsync(async (req: Request, res: Response) => {
     });
 });
 
+/** Get Student Dashboard by User ID */
+const getStudentDashboardByUserId = catchAsync(async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    // Get student profile by user ID first, then get dashboard
+    const studentProfile = await studentServices.getStudentByUserId(userId);
+    const result = await studentServices.getStudentDashboard(studentProfile.id);
+    sendResponse(res, {
+        message: "Student dashboard data retrieved successfully",
+        data: result,
+    });
+});
+
+/** Get Student Profile by User ID */
+const getStudentProfileByUserId = catchAsync(async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    // Get student profile by user ID
+    const result = await studentServices.getStudentByUserId(userId);
+    sendResponse(res, {
+        message: "Student profile retrieved successfully",
+        data: result,
+    });
+});
+
 /** Get Student Statistics */
 const getStudentStats = catchAsync(async (req: Request, res: Response) => {
     const result = await studentServices.getStudentStats();
@@ -136,10 +168,13 @@ export const studentControllers = {
     updateStudent,
     deleteStudent,
     getStudentProfile,
+    getStudentProfileByUserId,
     getStudentAttendance,
+    getStudentAttendanceByUserId,
     getStudentAttendanceSummary,
     submitLeaveRequest,
     updateStudentProfile,
     getStudentDashboard,
+    getStudentDashboardByUserId,
     getStudentStats,
 };

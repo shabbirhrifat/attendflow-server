@@ -10,6 +10,7 @@ import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
 import UserModel from '../user/user.model';
 import prisma from '../../config/prisma';
+import { sendPasswordResetEmail } from '../../utils/emailTemplates';
 
 // Types for auth service
 interface LoginUser {
@@ -115,6 +116,24 @@ const registerUser = async (userData: RegisterUser): Promise<AuthResponse> => {
             password: hashedPassword,
         },
     });
+
+    // Create associated profile based on role
+    if (userData.role === 'STUDENT') {
+        await prisma.student.create({
+            data: {
+                userId: user.id,
+                studentId: `STU${Date.now()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+                semester: 1,
+            },
+        });
+    } else if (userData.role === 'TEACHER') {
+        await prisma.teacher.create({
+            data: {
+                userId: user.id,
+                employeeId: `EMP${Date.now()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+            },
+        });
+    }
 
     // Generate tokens
     const jwtPayload = {
@@ -281,8 +300,19 @@ const forgotPassword = async (email: string): Promise<void> => {
         '1h' // Token expires in 1 hour
     );
 
-    // In a real application, you would send an email with the reset token
-    // TODO: Implement email sending functionality
+    // Send password reset email with the reset token
+    try {
+        // Create reset link for the email
+        const resetLink = `${config.frontend_url || 'http://localhost:3000'}/auth/reset-password?token=${resetToken}`;
+
+        // Send professional password reset email
+        await sendPasswordResetEmail(email, resetLink, user.name);
+    } catch (error) {
+        // Log error but don't throw - token is still generated and valid
+        console.error('Failed to send password reset email:', error);
+        // In production, you might want to throw this error
+        // throw new AppError(StatusCodes.INTERNAL_SERVER_ERROR, 'Failed to send password reset email');
+    }
 };
 
 // Reset password
@@ -308,8 +338,35 @@ const verifyEmail = async (token: string): Promise<void> => {
     // Verify email token
     const decoded = verifyToken(token, config.jwt_email_secret as string || config.jwt_access_secret as string) as JwtPayload;
 
-    // In a real implementation, you would update the user's verification status
-    // TODO: Update user verification status in database
+    // Check if the verification token exists in database
+    const existingToken = await prisma.emailVerificationToken.findUnique({
+        where: { token },
+    });
+
+    if (!existingToken) {
+        throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid or expired verification token');
+    }
+
+    // Check if token is expired
+    if (existingToken.expiresAt < new Date()) {
+        // Delete expired token
+        await prisma.emailVerificationToken.delete({
+            where: { id: existingToken.id },
+        });
+        throw new AppError(StatusCodes.BAD_REQUEST, 'Verification token has expired');
+    }
+
+    // Delete the verification token after successful verification
+    await prisma.emailVerificationToken.delete({
+        where: { id: existingToken.id },
+    });
+
+    // Note: To fully implement email verification, add an `emailVerified` field to the User model
+    // and uncomment the following:
+    // await UserModel.update({
+    //     where: { id: decoded.id },
+    //     data: { emailVerified: true },
+    // });
 };
 
 // Check user role
