@@ -10,7 +10,6 @@ import { AssignmentController } from './assignment.controller';
 import { AssignmentValidation } from './assignment.validation';
 import validateRequest from '../../middlewares/validateRequest';
 import AuthorizeRequest from '../../middlewares/auth';
-import { UserRole } from '@prisma/client';
 
 const router = express.Router();
 
@@ -23,7 +22,7 @@ const router = express.Router();
  */
 router.post(
     '/teacher-to-department',
-    AuthorizeRequest(UserRole.ADMIN),
+    AuthorizeRequest('ADMIN'),
     validateRequest(AssignmentValidation.assignTeacherToDepartment),
     AssignmentController.assignTeacherToDepartment
 );
@@ -35,7 +34,7 @@ router.post(
  */
 router.delete(
     '/teacher-from-department/:teacherId',
-    AuthorizeRequest(UserRole.ADMIN),
+    AuthorizeRequest('ADMIN'),
     AssignmentController.unassignTeacherFromDepartment
 );
 
@@ -48,7 +47,7 @@ router.delete(
  */
 router.post(
     '/student-to-batch',
-    AuthorizeRequest(UserRole.ADMIN),
+    AuthorizeRequest('ADMIN'),
     validateRequest(AssignmentValidation.assignStudentToBatch),
     AssignmentController.assignStudentToBatch
 );
@@ -60,7 +59,7 @@ router.post(
  */
 router.post(
     '/student-to-department',
-    AuthorizeRequest(UserRole.ADMIN),
+    AuthorizeRequest('ADMIN'),
     validateRequest(AssignmentValidation.assignStudentToDepartment),
     AssignmentController.assignStudentToDepartment
 );
@@ -74,7 +73,7 @@ router.post(
  */
 router.post(
     '/teacher-to-course',
-    AuthorizeRequest(UserRole.ADMIN),
+    AuthorizeRequest('ADMIN'),
     validateRequest(AssignmentValidation.assignTeacherToCourse),
     AssignmentController.assignTeacherToCourse
 );
@@ -86,7 +85,7 @@ router.post(
  */
 router.post(
     '/course-to-department',
-    AuthorizeRequest(UserRole.ADMIN),
+    AuthorizeRequest('ADMIN'),
     validateRequest(AssignmentValidation.assignCourseToDepartment),
     AssignmentController.assignCourseToDepartment
 );
@@ -98,7 +97,7 @@ router.post(
  */
 router.post(
     '/course-to-batch',
-    AuthorizeRequest(UserRole.ADMIN),
+    AuthorizeRequest('ADMIN'),
     validateRequest(AssignmentValidation.assignCourseToBatch),
     AssignmentController.assignCourseToBatch
 );
@@ -110,7 +109,7 @@ router.post(
  */
 router.post(
     '/student-to-course',
-    AuthorizeRequest(UserRole.ADMIN, UserRole.TEACHER),
+    AuthorizeRequest('ADMIN', 'TEACHER'),
     validateRequest(AssignmentValidation.assignStudentToCourse),
     AssignmentController.assignStudentToCourse
 );
@@ -122,7 +121,7 @@ router.post(
  */
 router.delete(
     '/student-from-course/:studentId/:courseId',
-    AuthorizeRequest(UserRole.ADMIN, UserRole.TEACHER),
+    AuthorizeRequest('ADMIN', 'TEACHER'),
     AssignmentController.unenrollStudentFromCourse
 );
 
@@ -135,7 +134,7 @@ router.delete(
  */
 router.post(
     '/department-head',
-    AuthorizeRequest(UserRole.ADMIN),
+    AuthorizeRequest('ADMIN'),
     validateRequest(AssignmentValidation.assignDepartmentHead),
     AssignmentController.assignDepartmentHead
 );

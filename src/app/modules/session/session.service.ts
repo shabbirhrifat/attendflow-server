@@ -4,7 +4,8 @@
  * Handles business logic for session management
  */
 
-import prisma from '../../config/prisma';
+import { SessionModel } from './session.model';
+import UserModel from '../user/user.model';
 import {
   ISessionData,
   ISessionResponse,
@@ -25,14 +26,12 @@ export const createSession = async (
   // Default expiration: 24 hours from now
   const expiresAt = data.expiresAt || new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-  const session = await prisma.session.create({
-    data: {
-      userId: data.userId,
-      token: data.token,
-      ipAddress: data.ipAddress,
-      userAgent: data.userAgent,
-      expiresAt,
-    },
+  const session = await SessionModel.model.create({
+    userId: data.userId,
+    token: data.token,
+    ipAddress: data.ipAddress,
+    userAgent: data.userAgent,
+    expiresAt,
   });
 
   return {
@@ -49,10 +48,8 @@ export const getUserSessions = async (
   userId: string,
   currentToken?: string
 ): Promise<IGetSessionsResponse> => {
-  const sessions = await prisma.session.findMany({
-    where: { userId },
-    orderBy: { lastActive: 'desc' },
-  });
+  const sessions = await SessionModel.model.find({ userId })
+    .sort({ lastActive: -1 });
 
   const now = new Date();
   const active = sessions.filter((s) => s.expiresAt > now).length;
@@ -60,7 +57,7 @@ export const getUserSessions = async (
 
   // Mark current session
   const sessionsWithCurrentFlag: ISessionResponse[] = sessions.map((s) => ({
-    ...s,
+    ...s.toObject ? s.toObject() : s,
     isCurrent: currentToken ? s.token === currentToken : false,
   }));
 
@@ -80,10 +77,8 @@ export const getUserSessions = async (
  * Get a specific session by token
  */
 export const getSessionByToken = async (token: string): Promise<any | null> => {
-  const session = await prisma.session.findUnique({
-    where: { token },
-    include: { user: true },
-  });
+  const session = await SessionModel.model.findOne({ token })
+    .populate('user');
 
   if (!session) {
     return null;
@@ -91,9 +86,7 @@ export const getSessionByToken = async (token: string): Promise<any | null> => {
 
   // Check if expired
   if (session.expiresAt < new Date()) {
-    await prisma.session.delete({
-      where: { id: session.id },
-    });
+    await SessionModel.model.findByIdAndDelete(session._id);
     return null;
   }
 
@@ -105,10 +98,10 @@ export const getSessionByToken = async (token: string): Promise<any | null> => {
  */
 export const updateSessionActivity = async (token: string): Promise<void> => {
   try {
-    await prisma.session.update({
-      where: { token },
-      data: { lastActive: new Date() },
-    });
+    await SessionModel.model.findOneAndUpdate(
+      { token },
+      { lastActive: new Date() }
+    );
   } catch (error) {
     // Ignore errors - session might have been deleted
   }
@@ -122,9 +115,7 @@ export const revokeSession = async (
   userId: string
 ): Promise<IRevokeSessionResponse> => {
   // Verify session belongs to user
-  const session = await prisma.session.findUnique({
-    where: { id: sessionId },
-  });
+  const session = await SessionModel.model.findById(sessionId);
 
   if (!session) {
     throw new AppError(StatusCodes.NOT_FOUND, 'Session not found');
@@ -134,9 +125,7 @@ export const revokeSession = async (
     throw new AppError(StatusCodes.FORBIDDEN, 'You do not have permission to revoke this session');
   }
 
-  await prisma.session.delete({
-    where: { id: sessionId },
-  });
+  await SessionModel.model.findByIdAndDelete(sessionId);
 
   return {
     success: true,
@@ -151,16 +140,14 @@ export const revokeAllOtherSessions = async (
   userId: string,
   currentToken: string
 ): Promise<IRevokeSessionResponse> => {
-  const result = await prisma.session.deleteMany({
-    where: {
-      userId,
-      token: { not: currentToken },
-    },
+  const result = await SessionModel.model.deleteMany({
+    userId,
+    token: { $ne: currentToken },
   });
 
   return {
     success: true,
-    message: `${result.count} other session(s) revoked successfully`,
+    message: `${result.deletedCount || 0} other session(s) revoked successfully`,
   };
 };
 
@@ -168,13 +155,11 @@ export const revokeAllOtherSessions = async (
  * Revoke all sessions for a user (including current)
  */
 export const revokeAllSessions = async (userId: string): Promise<IRevokeSessionResponse> => {
-  const result = await prisma.session.deleteMany({
-    where: { userId },
-  });
+  const result = await SessionModel.model.deleteMany({ userId });
 
   return {
     success: true,
-    message: `${result.count} session(s) revoked successfully`,
+    message: `${result.deletedCount || 0} session(s) revoked successfully`,
   };
 };
 
@@ -184,16 +169,14 @@ export const revokeAllSessions = async (userId: string): Promise<IRevokeSessionR
 export const cleanupExpiredSessions = async (): Promise<ICleanupResponse> => {
   const now = new Date();
 
-  const result = await prisma.session.deleteMany({
-    where: {
-      expiresAt: { lt: now },
-    },
+  const result = await SessionModel.model.deleteMany({
+    expiresAt: { $lt: now },
   });
 
   return {
     success: true,
     message: 'Expired sessions cleaned up successfully',
-    deleted: result.count,
+    deleted: result.deletedCount || 0,
   };
 };
 
@@ -205,18 +188,15 @@ export const enforceSessionLimit = async (
   userId: string,
   maxSessions: number = 5
 ): Promise<void> => {
-  const sessions = await prisma.session.findMany({
-    where: { userId },
-    orderBy: { lastActive: 'asc' },
-  });
+  const sessions = await SessionModel.model.find({ userId })
+    .sort({ lastActive: 1 });
 
   if (sessions.length > maxSessions) {
     // Delete oldest sessions
     const toDelete = sessions.slice(0, sessions.length - maxSessions);
-    await prisma.session.deleteMany({
-      where: {
-        id: { in: toDelete.map((s) => s.id) },
-      },
+    const idsToDelete = toDelete.map((s) => s._id);
+    await SessionModel.model.deleteMany({
+      _id: { $in: idsToDelete },
     });
   }
 };
@@ -225,9 +205,7 @@ export const enforceSessionLimit = async (
  * Get session statistics for a user
  */
 export const getSessionStats = async (userId: string): Promise<any> => {
-  const sessions = await prisma.session.findMany({
-    where: { userId },
-  });
+  const sessions = await SessionModel.model.find({ userId });
 
   const now = new Date();
   const active = sessions.filter((s) => s.expiresAt > now);

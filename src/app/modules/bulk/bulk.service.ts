@@ -4,7 +4,12 @@
  * Handles batch create, update, and delete operations
  */
 
-import prisma from '../../config/prisma';
+import UserModel from '../user/user.model';
+import { StudentModel } from '../student/student.model';
+import { TeacherModel } from '../teacher/teacher.model';
+import { CourseModel } from '../course/course.model';
+import { DepartmentModel } from '../organization/organization.model';
+import { AttendanceModel } from '../attendance/attendance.model';
 import {
   IBulkCreateRequest,
   IBulkUpdateRequest,
@@ -38,10 +43,8 @@ const bulkCreateUsers = async (
       const userData = data[i];
 
       // Check if user already exists
-      const existing = await prisma.user.findFirst({
-        where: {
-          OR: [{ email: userData.email }, { username: userData.username }],
-        },
+      const existing = await UserModel.model.findOne({
+        $or: [{ email: userData.email }, { username: userData.username }],
       });
 
       if (existing && skipDuplicates) {
@@ -58,14 +61,15 @@ const bulkCreateUsers = async (
 
       if (existing && !skipDuplicates) {
         // Update existing
-        await prisma.user.update({
-          where: { id: existing.id },
-          data: { ...userData, password: hashedPassword },
+        await UserModel.model.findByIdAndUpdate(existing.id, {
+          ...userData,
+          password: hashedPassword,
         });
       } else {
         // Create new
-        await prisma.user.create({
-          data: { ...userData, password: hashedPassword },
+        await UserModel.model.create({
+          ...userData,
+          password: hashedPassword,
         });
       }
 
@@ -113,28 +117,34 @@ const bulkCreateStudents = async (
       // First create user if needed
       const hashedPassword = await hashInfo(studentData.password || studentData.email);
 
-      const user = await prisma.user.upsert({
-        where: { email: studentData.email },
-        update: { password: hashedPassword },
-        create: {
+      const user = await UserModel.model.findOneAndUpdate(
+        { email: studentData.email },
+        { password: hashedPassword },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+
+      if (!user) {
+        // Create user with defaults
+        await UserModel.model.create({
           email: studentData.email,
           name: studentData.name,
           password: hashedPassword,
           role: 'STUDENT',
           status: 'ACTIVE',
-        },
-      });
+        });
+      }
 
       // Then create student profile
-      await prisma.student.upsert({
-        where: { userId: user.id },
-        update: studentData,
-        create: {
-          userId: user.id,
+      const userId = user?.id || user?._id;
+      await StudentModel.model.findOneAndUpdate(
+        { userId },
+        {
+          userId,
           studentId: studentData.studentId || `STU${Date.now()}${i}`,
           semester: studentData.semester || 1,
         },
-      });
+        { upsert: true, new: true }
+      );
 
       result.success++;
     } catch (error: any) {
@@ -175,19 +185,19 @@ const bulkUpdate = async (
   let model: any;
   switch (entityType) {
     case BulkEntityType.USER:
-      model = prisma.user;
+      model = UserModel.model;
       break;
     case BulkEntityType.STUDENT:
-      model = prisma.student;
+      model = StudentModel.model;
       break;
     case BulkEntityType.TEACHER:
-      model = prisma.teacher;
+      model = TeacherModel.model;
       break;
     case BulkEntityType.COURSE:
-      model = prisma.course;
+      model = CourseModel.model;
       break;
     case BulkEntityType.DEPARTMENT:
-      model = prisma.department;
+      model = DepartmentModel.model;
       break;
     default:
       throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid entity type');
@@ -195,10 +205,7 @@ const bulkUpdate = async (
 
   for (const id of ids) {
     try {
-      await model.update({
-        where: { id },
-        data: updateData,
-      });
+      await model.findByIdAndUpdate(id, updateData);
       result.success++;
     } catch (error: any) {
       result.failed++;
@@ -233,22 +240,22 @@ const bulkDelete = async (
   let model: any;
   switch (entityType) {
     case BulkEntityType.USER:
-      model = prisma.user;
+      model = UserModel.model;
       break;
     case BulkEntityType.STUDENT:
-      model = prisma.student;
+      model = StudentModel.model;
       break;
     case BulkEntityType.TEACHER:
-      model = prisma.teacher;
+      model = TeacherModel.model;
       break;
     case BulkEntityType.COURSE:
-      model = prisma.course;
+      model = CourseModel.model;
       break;
     case BulkEntityType.DEPARTMENT:
-      model = prisma.department;
+      model = DepartmentModel.model;
       break;
     case BulkEntityType.ATTENDANCE:
-      model = prisma.attendance;
+      model = AttendanceModel.model;
       break;
     default:
       throw new AppError(StatusCodes.BAD_REQUEST, 'Invalid entity type');
@@ -256,11 +263,11 @@ const bulkDelete = async (
 
   try {
     const deleteResult = await model.deleteMany({
-      where: { id: { in: ids } },
+      _id: { $in: ids },
     });
 
-    result.success = deleteResult.count;
-    result.failed = ids.length - deleteResult.count;
+    result.success = deleteResult.deletedCount || 0;
+    result.failed = ids.length - result.success;
   } catch (error: any) {
     result.failed = ids.length;
     result.errors.push({
@@ -292,9 +299,7 @@ const bulkMarkAttendance = async (
   };
 
   // Verify course exists
-  const course = await prisma.course.findUnique({
-    where: { id: courseId },
-  });
+  const course = await CourseModel.findById(courseId);
 
   if (!course) {
     throw new AppError(StatusCodes.NOT_FOUND, 'Course not found');
@@ -303,9 +308,7 @@ const bulkMarkAttendance = async (
   for (const record of attendance) {
     try {
       // Find student by studentId
-      const student = await prisma.student.findUnique({
-        where: { id: record.studentId },
-      });
+      const student = await StudentModel.findById(record.studentId);
 
       if (!student) {
         result.failed++;
@@ -316,27 +319,21 @@ const bulkMarkAttendance = async (
         continue;
       }
 
+      const studentObj = student.toObject ? student.toObject() : student;
+
       // Create or update attendance
-      await prisma.attendance.upsert({
-        where: {
-          userId_courseId_date: {
-            userId: student.userId,
-            courseId,
-            date: attendanceDate,
-          },
-        },
-        update: {
-          status: record.status,
-          notes: record.notes,
-        },
-        create: {
-          userId: student.userId,
+      await AttendanceModel.model.findOneAndUpdate(
+        {
+          userId: studentObj.userId,
           courseId,
           date: attendanceDate,
+        },
+        {
           status: record.status,
           notes: record.notes,
         },
-      });
+        { upsert: true, new: true }
+      );
 
       result.success++;
     } catch (error: any) {

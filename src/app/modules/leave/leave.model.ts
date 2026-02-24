@@ -1,162 +1,328 @@
-import prisma from '../../config/prisma';
+import { LeaveRequest, LeaveBalance, LeavePolicy } from './leave.schema';
+import BaseRepository from '../../repositories/BaseRepository';
+import mongoose from 'mongoose';
 
-// Leave model operations
-export const LeaveModel = {
-    // Create a new leave request
-    create: async (data: any) => {
-        return await prisma.leaveRequest.create({
-            data,
-            include: {
-                user: true,
-            },
-        });
-    },
+/**
+ * Leave Request Repository using MongoDB/Mongoose
+ */
+class LeaveRequestRepository extends BaseRepository<any> {
+  constructor() {
+    super(LeaveRequest);
+  }
 
-    // Find leave by ID
-    findById: async (id: string) => {
-        return await prisma.leaveRequest.findUnique({
-            where: { id },
-            include: {
-                user: true,
-            },
-        });
-    },
+  /**
+   * Find leaves by user ID
+   */
+  async findByUserId(userId: string) {
+    return await this.model.find({ userId })
+      .populate('user', 'id name email')
+      .sort({ createdAt: -1 });
+  }
 
-    // Find leaves by user ID
-    findByUserId: async (userId: string) => {
-        return await prisma.leaveRequest.findMany({
-            where: { userId },
-            include: {
-                user: true,
-            },
-            orderBy: { createdAt: 'desc' },
-        });
-    },
+  /**
+   * Find leaves by student ID
+   */
+  async findByStudentId(studentId: string) {
+    return await this.model.find({ studentId })
+      .populate('student')
+      .populate('user', 'id name email')
+      .sort({ createdAt: -1 });
+  }
 
-    // Get all leaves with optional filters
-    findMany: async (filters: any = {}) => {
-        const { userId, status, leaveType, startDate, endDate, page = 1, limit = 10 } = filters;
+  /**
+   * Find leaves by teacher ID
+   */
+  async findByTeacherId(teacherId: string) {
+    return await this.model.find({ teacherId })
+      .populate('teacher')
+      .populate('user', 'id name email')
+      .sort({ createdAt: -1 });
+  }
 
-        const where: any = {};
+  /**
+   * Find leaves with filters
+   */
+  async findMany(filters: any = {}) {
+    const { userId, status, leaveType, startDate, endDate, page = 1, limit = 10 } = filters;
+    const query: any = {};
 
-        if (userId) where.userId = userId;
-        if (status) where.status = status;
-        if (leaveType) where.type = leaveType;
+    if (userId) query.userId = userId;
+    if (status) query.status = status;
+    if (leaveType) query.type = leaveType;
 
-        if (startDate || endDate) {
-            where.startDate = {};
-            if (startDate) where.startDate.gte = new Date(startDate);
-            if (endDate) where.startDate.lte = new Date(endDate);
-        }
+    if (startDate || endDate) {
+      query.startDate = {};
+      if (startDate) query.startDate.$gte = new Date(startDate);
+      if (endDate) query.startDate.$lte = new Date(endDate);
+    }
 
-        // Convert page and limit to integers
-        const pageNum = parseInt(page as string, 10) || 1;
-        const limitNum = parseInt(limit as string, 10) || 10;
-        const skip = (pageNum - 1) * limitNum;
+    const skip = ((page as number) - 1) * (limit as number);
 
-        return await prisma.leaveRequest.findMany({
-            where,
-            include: {
-                user: true,
-            },
-            orderBy: { createdAt: 'desc' },
-            skip,
-            take: limitNum,
-        });
-    },
+    const [leaves, total] = await Promise.all([
+      this.model.find(query)
+        .populate('user', 'id name email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit as number)
+        .lean(),
+      this.model.countDocuments(query),
+    ]);
 
-    // Update leave request
-    update: async (id: string, data: any) => {
-        return await prisma.leaveRequest.update({
-            where: { id },
-            data,
-            include: {
-                user: true,
-            },
-        });
-    },
+    return {
+      data: leaves,
+      meta: {
+        page: page as number,
+        limit: limit as number,
+        total,
+        totalPages: Math.ceil(total / (limit as number)),
+      },
+    };
+  }
 
-    // Delete leave request
-    delete: async (id: string) => {
-        return await prisma.leaveRequest.delete({
-            where: { id },
-        });
-    },
+  /**
+   * Update leave status (approve/reject)
+   */
+  async updateStatus(id: string, status: 'APPROVED' | 'REJECTED' | 'PENDING', approvedBy: string, rejectionReason?: string) {
+    return await this.model.findByIdAndUpdate(
+      id,
+      {
+        status,
+        approvedBy,
+        approvedAt: new Date(),
+        ...(rejectionReason && { rejectionReason }),
+      },
+      { new: true }
+    )
+    .populate('user', 'id name email')
+    .populate('approver', 'id name email');
+  }
 
-    // Approve or reject leave request
-    updateStatus: async (id: string, status: 'APPROVED' | 'REJECTED' | 'PENDING', approvedBy: string, rejectionReason?: string) => {
-        return await prisma.leaveRequest.update({
-            where: { id },
-            data: {
-                status,
-                approvedBy,
-                approvedAt: new Date(),
-                ...(rejectionReason && { rejectionReason }),
-            },
-            include: {
-                user: true,
-            },
-        });
-    },
+  /**
+   * Get leave statistics
+   */
+  async getStats(filters: any = {}) {
+    const { userId, startDate, endDate } = filters;
+    const matchQuery: any = {};
 
-    // Get leave statistics
-    getStats: async (filters: any = {}) => {
-        const { userId, startDate, endDate } = filters;
+    if (userId) matchQuery.userId = mongoose.Types.ObjectId.createFromHexString(userId);
 
-        const where: any = {};
+    if (startDate || endDate) {
+      matchQuery.startDate = {};
+      if (startDate) matchQuery.startDate.$gte = new Date(startDate);
+      if (endDate) matchQuery.startDate.$lte = new Date(endDate);
+    }
 
-        if (userId) where.userId = userId;
+    const [
+      totalLeaves,
+      pendingLeaves,
+      approvedLeaves,
+      rejectedLeaves,
+    ] = await Promise.all([
+      this.model.countDocuments(matchQuery),
+      this.model.countDocuments({ ...matchQuery, status: 'PENDING' }),
+      this.model.countDocuments({ ...matchQuery, status: 'APPROVED' }),
+      this.model.countDocuments({ ...matchQuery, status: 'REJECTED' }),
+    ]);
 
-        if (startDate || endDate) {
-            where.startDate = {};
-            if (startDate) where.startDate.gte = new Date(startDate);
-            if (endDate) where.startDate.lte = new Date(endDate);
-        }
+    // Get leave by type using aggregation
+    const leaveByType = await this.model.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: '$type',
+          count: { $sum: 1 },
+        },
+      },
+    ]);
 
-        const [
-            totalLeaves,
-            pendingLeaves,
-            approvedLeaves,
-            rejectedLeaves,
-        ] = await Promise.all([
-            prisma.leaveRequest.count({ where }),
-            prisma.leaveRequest.count({ where: { ...where, status: 'PENDING' } }),
-            prisma.leaveRequest.count({ where: { ...where, status: 'APPROVED' } }),
-            prisma.leaveRequest.count({ where: { ...where, status: 'REJECTED' } }),
-        ]);
+    const leaveByTypeMap = leaveByType.reduce((acc: Record<string, number>, item: any) => {
+      acc[item._id] = item.count;
+      return acc;
+    }, {});
 
-        // Get leave by type
-        const leaveByType = await prisma.leaveRequest.groupBy({
-            by: ['reason'],
-            _count: true,
-            where,
-        });
+    // Monthly trend using aggregation
+    const monthlyTrend = await this.model.aggregate([
+      {
+        $match: {
+          ...matchQuery,
+          startDate: {
+            $gte: filters.startDate || new Date(new Date().getFullYear(), 0, 1),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m', date: '$startDate' } },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { '_id': 1 },
+      },
+    ]);
 
-        const leaveByTypeMap = leaveByType.reduce((acc: Record<string, number>, item: any) => {
-            acc[item.reason] = item._count;
-            return acc;
-        }, {});
+    return {
+      totalLeaves,
+      pendingLeaves,
+      approvedLeaves,
+      rejectedLeaves,
+      leaveByType: leaveByTypeMap,
+      monthlyTrend: monthlyTrend.map((item: any) => ({
+        month: item._id,
+        count: item.count,
+      })),
+    };
+  }
 
-        // Get monthly trend
-        const monthlyTrend = await prisma.$queryRaw`
-            SELECT
-                TO_CHAR(startDate, 'YYYY-MM') as month,
-                COUNT(*) as count
-            FROM leaves
-            WHERE startDate >= ${startDate || new Date(new Date().getFullYear(), 0, 1)}
-            GROUP BY TO_CHAR(startDate, 'YYYY-MM')
-            ORDER BY month
-        ` as { month: string; count: number }[];
+  /**
+   * Get pending leaves
+   */
+  async getPending() {
+    return await this.model.find({ status: 'PENDING' })
+      .populate('user', 'id name email')
+      .sort({ createdAt: 1 });
+  }
 
-        return {
-            totalLeaves,
-            pendingLeaves,
-            approvedLeaves,
-            rejectedLeaves,
-            leaveByType: leaveByTypeMap,
-            monthlyTrend,
-        };
-    },
-};
+  /**
+   * Find leaves overlapping with date range
+   */
+  async findOverlapping(userId: string, startDate: Date, endDate: Date, excludeId?: string) {
+    const query: any = {
+      userId,
+      $or: [
+        { startDate: { $lte: endDate }, endDate: { $gte: startDate } },
+        { startDate: { $gte: startDate, $lte: endDate } },
+        { endDate: { $gte: startDate, $lte: endDate } },
+      ],
+    };
 
-export default LeaveModel;
+    if (excludeId) {
+      query._id = { $ne: excludeId };
+    }
+
+    return await this.model.find(query);
+  }
+}
+
+/**
+ * Leave Balance Repository using MongoDB/Mongoose
+ */
+class LeaveBalanceRepository extends BaseRepository<any> {
+  constructor() {
+    super(LeaveBalance);
+  }
+
+  /**
+   * Find leave balance by user ID and academic year
+   */
+  async findByUserAndYear(userId: string, academicYear: string) {
+    return await this.model.findOne({ userId, academicYear })
+      .populate('user', 'id name email');
+  }
+
+  /**
+   * Find leave balance by student ID
+   */
+  async findByStudentId(studentId: string) {
+    return await this.model.findOne({ studentId })
+      .populate('student')
+      .populate('user', 'id name email');
+  }
+
+  /**
+   * Find leave balance by teacher ID
+   */
+  async findByTeacherId(teacherId: string) {
+    return await this.model.findOne({ teacherId })
+      .populate('teacher')
+      .populate('user', 'id name email');
+  }
+
+  /**
+   * Update used leave counts
+   */
+  async updateUsedLeave(balanceId: string, leaveType: string, increment: number) {
+    const updateField = `used${leaveType.charAt(0).toUpperCase() + leaveType.slice(1)}`;
+
+    return await this.model.findByIdAndUpdate(
+      balanceId,
+      {
+        $inc: { [updateField]: increment },
+      },
+      { new: true }
+    );
+  }
+
+  /**
+   * Get leave balance summary
+   */
+  async getBalanceSummary(userId: string, academicYear: string) {
+    return await this.model.findOne({ userId, academicYear })
+      .populate('user', 'id name email');
+  }
+
+  /**
+   * Create or update leave balance
+   */
+  async upsert(userId: string, academicYear: string, data: any) {
+    return await this.model.findOneAndUpdate(
+      { userId, academicYear },
+      data,
+      { upsert: true, new: true }
+    );
+  }
+}
+
+/**
+ * Leave Policy Repository using MongoDB/Mongoose
+ */
+class LeavePolicyRepository extends BaseRepository<any> {
+  constructor() {
+    super(LeavePolicy);
+  }
+
+  /**
+   * Find active policies
+   */
+  async findActive() {
+    return await this.model.find({ isActive: true })
+      .sort({ academicYear: -1 });
+  }
+
+  /**
+   * Find policy by academic year
+   */
+  async findByAcademicYear(academicYear: string) {
+    return await this.model.findOne({ academicYear, isActive: true });
+  }
+
+  /**
+   * Find current policy
+   */
+  async findCurrent() {
+    const currentYear = new Date().getFullYear();
+    const academicYear = `${currentYear}-${currentYear + 1}`;
+
+    return await this.model.findOne({ academicYear, isActive: true });
+  }
+
+  /**
+   * Get policy by name
+   */
+  async findByName(name: string) {
+    return await this.model.findOne({ name });
+  }
+}
+
+// Create singleton instances
+const leaveRequestRepository = new LeaveRequestRepository();
+const leaveBalanceRepository = new LeaveBalanceRepository();
+const leavePolicyRepository = new LeavePolicyRepository();
+
+// Export for backward compatibility
+export { LeaveRequest, LeaveBalance, LeavePolicy };
+export const LeaveModel = leaveRequestRepository;
+export const LeaveBalanceModel = leaveBalanceRepository;
+export const LeavePolicyModel = leavePolicyRepository;
+
+export default leaveRequestRepository;

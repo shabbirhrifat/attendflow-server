@@ -17,25 +17,22 @@ import {
 } from './attendance.interface';
 import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
-import prisma from '../../config/prisma';
+import UserModel from '../user/user.model';
+import { CourseModel } from '../course/course.model';
 
 /**
  * Record attendance for a student
  */
 const recordAttendance = async (data: IAttendanceCreate): Promise<IAttendance> => {
     // Check if user exists
-    const user = await prisma.user.findUnique({
-        where: { id: data.userId },
-    });
+    const user = await UserModel.findById(data.userId);
 
     if (!user) {
         throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
     }
 
     // Check if course exists
-    const course = await prisma.course.findUnique({
-        where: { id: data.courseId },
-    });
+    const course = await CourseModel.findById(data.courseId);
 
     if (!course) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Course not found');
@@ -97,9 +94,7 @@ const getAttendances = async (filters: IAttendanceFilters) => {
  */
 const bulkMarkAttendance = async (data: IBulkAttendanceCreate) => {
     // Check if course exists
-    const course = await prisma.course.findUnique({
-        where: { id: data.courseId },
-    });
+    const course = await CourseModel.findById(data.courseId);
 
     if (!course) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Course not found');
@@ -118,9 +113,7 @@ const getCourseAttendanceSummary = async (
     endDate?: Date
 ): Promise<IAttendanceSummary> => {
     // Check if course exists
-    const course = await prisma.course.findUnique({
-        where: { id: courseId },
-    });
+    const course = await CourseModel.findById(courseId);
 
     if (!course) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Course not found');
@@ -139,9 +132,7 @@ const getStudentAttendanceSummary = async (
     endDate?: Date
 ): Promise<IAttendanceSummary> => {
     // Check if user exists
-    const user = await prisma.user.findUnique({
-        where: { id: userId },
-    });
+    const user = await UserModel.findById(userId);
 
     if (!user) {
         throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
@@ -156,9 +147,7 @@ const getStudentAttendanceSummary = async (
  */
 const createQRCode = async (data: IQRCodeCreate): Promise<IQRCode> => {
     // Check if attendance session exists
-    const session = await prisma.attendanceSession.findUnique({
-        where: { id: data.attendanceSessionId },
-    });
+    const session = await AttendanceSessionModel.findById(data.attendanceSessionId);
 
     if (!session) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Attendance session not found');
@@ -173,9 +162,7 @@ const createQRCode = async (data: IQRCodeCreate): Promise<IQRCode> => {
  */
 const processQRCodeCheckIn = async (data: IQRCodeCheckIn) => {
     // Check if user exists
-    const user = await prisma.user.findUnique({
-        where: { id: data.userId },
-    });
+    const user = await UserModel.findById(data.userId);
 
     if (!user) {
         throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
@@ -190,18 +177,14 @@ const processQRCodeCheckIn = async (data: IQRCodeCheckIn) => {
  */
 const createAttendanceSession = async (data: IAttendanceSessionCreate): Promise<IAttendanceSession> => {
     // Check if course exists
-    const course = await prisma.course.findUnique({
-        where: { id: data.courseId },
-    });
+    const course = await CourseModel.findById(data.courseId);
 
     if (!course) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Course not found');
     }
 
     // Check if teacher exists
-    const teacher = await prisma.user.findUnique({
-        where: { id: data.teacherId },
-    });
+    const teacher = await UserModel.findById(data.teacherId);
 
     if (!teacher) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Teacher not found');
@@ -228,50 +211,11 @@ const getAttendanceDashboard = async (): Promise<IAttendanceDashboard> => {
         lateToday,
         excusedToday,
     ] = await Promise.all([
-        prisma.attendance.count({
-            where: {
-                date: {
-                    gte: today,
-                    lt: tomorrow,
-                },
-            },
-        }),
-        prisma.attendance.count({
-            where: {
-                date: {
-                    gte: today,
-                    lt: tomorrow,
-                },
-                status: 'PRESENT',
-            },
-        }),
-        prisma.attendance.count({
-            where: {
-                date: {
-                    gte: today,
-                    lt: tomorrow,
-                },
-                status: 'ABSENT',
-            },
-        }),
-        prisma.attendance.count({
-            where: {
-                date: {
-                    gte: today,
-                    lt: tomorrow,
-                },
-                status: 'LATE',
-            },
-        }),
-        prisma.attendance.count({
-            where: {
-                date: {
-                    gte: today,
-                    lt: tomorrow,
-                },
-                status: 'EXCUSED',
-            },
-        }),
+        AttendanceModel.model.countDocuments({ date: { $gte: today, $lt: tomorrow } }),
+        AttendanceModel.model.countDocuments({ date: { $gte: today, $lt: tomorrow }, status: 'PRESENT' }),
+        AttendanceModel.model.countDocuments({ date: { $gte: today, $lt: tomorrow }, status: 'ABSENT' }),
+        AttendanceModel.model.countDocuments({ date: { $gte: today, $lt: tomorrow }, status: 'LATE' }),
+        AttendanceModel.model.countDocuments({ date: { $gte: today, $lt: tomorrow }, status: 'EXCUSED' }),
     ]);
 
     // Get weekly trend (last 7 days)
@@ -284,23 +228,8 @@ const getAttendanceDashboard = async (): Promise<IAttendanceDashboard> => {
         nextDate.setDate(nextDate.getDate() + 1);
 
         const [total, present] = await Promise.all([
-            prisma.attendance.count({
-                where: {
-                    date: {
-                        gte: date,
-                        lt: nextDate,
-                    },
-                },
-            }),
-            prisma.attendance.count({
-                where: {
-                    date: {
-                        gte: date,
-                        lt: nextDate,
-                    },
-                    status: 'PRESENT',
-                },
-            }),
+            AttendanceModel.model.countDocuments({ date: { $gte: date, $lt: nextDate } }),
+            AttendanceModel.model.countDocuments({ date: { $gte: date, $lt: nextDate }, status: 'PRESENT' }),
         ]);
 
         const attendance = total > 0 ? Math.round((present / total) * 100) : 0;
@@ -310,34 +239,47 @@ const getAttendanceDashboard = async (): Promise<IAttendanceDashboard> => {
         });
     }
 
-    // Get top and low performers (last 30 days)
+    // Get top and low performers (last 30 days) using aggregation
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const studentStats = await prisma.$queryRaw`
-        SELECT 
-            u.id as userId,
-            u.name,
-            COUNT(*) as totalClasses,
-            SUM(CASE WHEN a.status = 'PRESENT' THEN 1 ELSE 0 END) as presentCount
-        FROM attendances a
-        JOIN users u ON a.userId = u.id
-        WHERE a.date >= ${thirtyDaysAgo}
-        GROUP BY u.id, u.name
-        HAVING COUNT(*) >= 5
-        ORDER BY (SUM(CASE WHEN a.status = 'PRESENT' THEN 1 ELSE 0 END) / COUNT(*)) DESC
-        LIMIT 10
-    ` as { userId: string; name: string; totalClasses: number; presentCount: number }[];
+    const studentStats = await AttendanceModel.model.aggregate([
+        {
+            $match: { date: { $gte: thirtyDaysAgo } }
+        },
+        {
+            $group: {
+                _id: '$userId',
+                name: { $first: '$userId' }, // Will be populated
+                totalClasses: { $sum: 1 },
+                presentCount: {
+                    $sum: { $cond: [{ $eq: ['$status', 'PRESENT'] }, 1, 0] }
+                }
+            }
+        },
+        {
+            $match: { totalClasses: { $gte: 5 } }
+        },
+        {
+            $sort: { attendanceRate: -1 }
+        },
+        {
+            $limit: 10
+        }
+    ]);
 
-    const topPerformers = studentStats.slice(0, 5).map(student => ({
-        userId: student.userId,
-        name: student.name,
+    // Populate user names
+    const populatedStats = await AttendanceModel.model.populate(studentStats, { path: '_id', model: 'User' });
+
+    const topPerformers = populatedStats.slice(0, 5).map((student: any) => ({
+        userId: student._id,
+        name: student.name?.name || 'Unknown',
         attendance: Math.round((student.presentCount / student.totalClasses) * 100),
     }));
 
-    const lowPerformers = studentStats.slice(-5).reverse().map(student => ({
-        userId: student.userId,
-        name: student.name,
+    const lowPerformers = populatedStats.slice(-5).reverse().map((student: any) => ({
+        userId: student._id,
+        name: student.name?.name || 'Unknown',
         attendance: Math.round((student.presentCount / student.totalClasses) * 100),
     }));
 

@@ -12,6 +12,7 @@ export default {
   jwt_refresh_expires: process.env.JWT_REFRESH_EXPIRES,
   jwt_reset_secret: process.env.JWT_RESET_SECRET,
   jwt_email_secret: process.env.JWT_EMAIL_SECRET,
+  frontend_url: process.env.FRONTEND_URL || 'http://localhost:3000',
   email_pass: process.env.EMAIL_PASS,
   email_user: process.env.EMAIL_USER,
 };

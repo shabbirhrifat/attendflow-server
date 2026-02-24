@@ -25,7 +25,8 @@ import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
 import { generateTeacherId, generateTeacherUserId } from '../../utils/idGenerator';
 import { hashInfo } from '../../utils/hashInfo';
-import prisma from '../../config/prisma';
+import UserModel from '../user/user.model';
+import { DepartmentModel } from '../organization/organization.model';
 import QueryBuilder from '../../builder/QueryBuilder';
 
 // Teacher profile services
@@ -37,9 +38,7 @@ export const createTeacherProfile = async (data: ITeacherCreate): Promise<ITeach
         }
 
         // Check if email already exists
-        const existingEmail = await prisma.user.findUnique({
-            where: { email: data.email },
-        });
+        const existingEmail = await UserModel.findByEmail(data.email);
 
         if (existingEmail) {
             throw new AppError(StatusCodes.CONFLICT, 'Email already exists');
@@ -61,17 +60,15 @@ export const createTeacherProfile = async (data: ITeacherCreate): Promise<ITeach
             // Hash password before creating user
             const hashedPassword = await hashInfo(data.password || 'changeme123');
 
-            await prisma.user.create({
-                data: {
-                    id: userId,
-                    name: data.name,
-                    email: data.email, // Use provided email (REQUIRED)
-                    username: userId,
-                    password: hashedPassword, // Use hashed password
-                    role: 'TEACHER',
-                    status: 'ACTIVE',
-                    departmentId: data.departmentId, // Optional - can be null
-                }
+            await UserModel.create({
+                id: userId,
+                name: data.name,
+                email: data.email, // Use provided email (REQUIRED)
+                username: userId,
+                password: hashedPassword, // Use hashed password
+                role: 'TEACHER',
+                status: 'ACTIVE',
+                departmentId: data.departmentId, // Optional - can be null
             });
         }
 
@@ -158,66 +155,29 @@ export const getAllTeachers = async (filters: any): Promise<{ data: ITeacher[]; 
         // Build query with search, filter, sort, pagination, and field selection
         queryBuilder.search(['employeeId']).filter().sort().paginate().fields();
 
-        const queryOptions = queryBuilder.getQueryOptions();
+        const filter = queryBuilder.getFilter();
+        const sort = queryBuilder.getSort();
+        const pagination = queryBuilder.getPagination();
+
+        // Build where clause
+        const where: any = { ...filter };
+
+        if (filters.departmentId && filters.departmentId !== 'all') {
+            where.departmentId = filters.departmentId;
+        }
 
         // Execute query
         const [teachers, total] = await Promise.all([
-            prisma.teacher.findMany({
-                where: {
-                    ...queryOptions.where,
-                    ...(filters.departmentId && filters.departmentId !== 'all' && { departmentId: filters.departmentId }),
-                    ...(() => {
-                        let isActiveFilter;
-                        if (filters.status === 'active') {
-                            isActiveFilter = true;
-                        } else if (filters.status === 'inactive') {
-                            isActiveFilter = false;
-                        } else if (filters.isActive !== undefined) {
-                            isActiveFilter = filters.isActive === 'true';
-                        }
-                        return isActiveFilter !== undefined ? { user: { status: isActiveFilter ? 'ACTIVE' : 'INACTIVE' } } : {};
-                    })(),
-                },
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            name: true,
-                            email: true,
-                            phone: true,
-                            avatar: true,
-                            status: true,
-                        },
-                    },
-                    department: {
-                        select: {
-                            id: true,
-                            name: true,
-                            code: true,
-                        },
-                    },
-                },
-                orderBy: queryOptions.orderBy,
-                skip: queryOptions.skip,
-                take: queryOptions.take,
-            }),
-            prisma.teacher.count({
-                where: {
-                    ...queryOptions.where,
-                    ...(filters.departmentId && filters.departmentId !== 'all' && { departmentId: filters.departmentId }),
-                    ...(() => {
-                        let isActiveFilter;
-                        if (filters.status === 'active') {
-                            isActiveFilter = true;
-                        } else if (filters.status === 'inactive') {
-                            isActiveFilter = false;
-                        } else if (filters.isActive !== undefined) {
-                            isActiveFilter = filters.isActive === 'true';
-                        }
-                        return isActiveFilter !== undefined ? { user: { status: isActiveFilter ? 'ACTIVE' : 'INACTIVE' } } : {};
-                    })(),
-                },
-            }),
+            TeacherModel.model.find(where)
+                .populate({
+                    path: 'user',
+                    select: 'id name email phone avatar status'
+                })
+                .populate('department', 'id name code')
+                .sort(sort)
+                .skip((pagination.page - 1) * pagination.limit)
+                .limit(pagination.limit),
+            TeacherModel.model.countDocuments(where),
         ]);
 
         const meta = queryBuilder.getPaginationMeta(total);
@@ -698,9 +658,7 @@ export const assignTeacherToDepartment = async (teacherId: string, departmentId:
         }
 
         // Check if department exists
-        const department = await prisma.department.findUnique({
-            where: { id: departmentId }
-        });
+        const department = await DepartmentModel.model.findById(departmentId);
         if (!department) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
         }
@@ -734,30 +692,22 @@ export const removeTeacherFromDepartment = async (teacherId: string): Promise<IT
 export const bulkAssignTeachersToDepartment = async (teacherIds: string[], departmentId: string): Promise<{ count: number; teachers: ITeacher[] }> => {
     try {
         // Check if department exists
-        const department = await prisma.department.findUnique({
-            where: { id: departmentId }
-        });
+        const department = await DepartmentModel.model.findById(departmentId);
         if (!department) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
         }
 
         // Update multiple teachers with department
-        const result = await prisma.teacher.updateMany({
-            where: {
-                id: { in: teacherIds }
-            },
-            data: {
-                departmentId
-            }
-        });
+        const result = await TeacherModel.model.updateMany(
+            { _id: { $in: teacherIds } },
+            { departmentId }
+        );
 
         // Get updated teachers
-        const updatedTeachers = await TeacherModel.findMany({
-            departmentId
-        });
+        const updatedTeachers = await TeacherModel.model.find({ departmentId });
 
         return {
-            count: result.count,
+            count: result.modifiedCount || 0,
             teachers: updatedTeachers as unknown as ITeacher[]
         };
     } catch (error) {

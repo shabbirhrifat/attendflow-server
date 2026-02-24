@@ -7,15 +7,13 @@ import {
 } from './attendance.interface';
 import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
-import { CourseModel } from '../course';
+import { CourseModel } from '../course/course.model';
 import { TeacherModel } from '../teacher/teacher.model';
 
 // Create attendance session
 const createAttendanceSession = async (payload: IAttendanceSessionCreate): Promise<IAttendanceSession> => {
     // Validate course exists
-    const courseExists = await CourseModel.findUnique({
-        where: { id: payload.courseId },
-    });
+    const courseExists = await CourseModel.findById(payload.courseId);
     if (!courseExists) {
         throw new AppError(StatusCodes.BAD_REQUEST, 'Course not found');
     }
@@ -27,9 +25,10 @@ const createAttendanceSession = async (payload: IAttendanceSessionCreate): Promi
     }
 
     // Create session data
+    const teacherObj = teacherExists.toObject ? teacherExists.toObject() : teacherExists;
     const sessionData = {
         courseId: payload.courseId,
-        teacherId: teacherExists.userId,
+        teacherId: teacherObj.userId,
         date: payload.date || new Date(),
         startTime: payload.startTime || new Date(),
         location: payload.location,

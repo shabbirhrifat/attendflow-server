@@ -7,16 +7,16 @@ import {
 } from './leave.interface';
 import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
-import prisma from '../../config/prisma';
+import UserModel from '../user/user.model';
+import { CourseEnrollmentModel } from '../course/course.model';
+import { AttendanceModel } from '../attendance/attendance.model';
 
 /**
  * Submit a new leave request
  */
 const submitLeave = async (data: any): Promise<ILeave> => {
     // Check if user exists
-    const user = await prisma.user.findUnique({
-        where: { id: data.userId },
-    });
+    const user = await UserModel.findById(data.userId);
 
     if (!user) {
         throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
@@ -41,31 +41,23 @@ const submitLeave = async (data: any): Promise<ILeave> => {
     }
 
     // Check for overlapping leave requests
-    const overlappingLeaves = await prisma.leaveRequest.findMany({
-        where: {
-            userId: data.userId,
-            status: { in: ['PENDING', 'APPROVED'] },
-            OR: [
-                {
-                    AND: [
-                        { startDate: { lte: startDate } },
-                        { endDate: { gte: startDate } },
-                    ],
-                },
-                {
-                    AND: [
-                        { startDate: { lte: endDate } },
-                        { endDate: { gte: endDate } },
-                    ],
-                },
-                {
-                    AND: [
-                        { startDate: { gte: startDate } },
-                        { endDate: { lte: endDate } },
-                    ],
-                },
-            ],
-        },
+    const overlappingLeaves = await LeaveModel.model.find({
+        userId: data.userId,
+        status: { $in: ['PENDING', 'APPROVED'] },
+        $or: [
+            {
+                startDate: { $lte: startDate },
+                endDate: { $gte: startDate },
+            },
+            {
+                startDate: { $lte: endDate },
+                endDate: { $gte: endDate },
+            },
+            {
+                startDate: { $gte: startDate },
+                endDate: { $lte: endDate },
+            },
+        ],
     });
 
     if (overlappingLeaves.length > 0) {
@@ -159,9 +151,7 @@ const processLeaveRequest = async (
     }
 
     // Check if approver exists and is a teacher
-    const approver = await prisma.user.findUnique({
-        where: { id: approvedBy },
-    });
+    const approver = await UserModel.findById(approvedBy);
 
     if (!approver) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Approver not found');
@@ -212,32 +202,24 @@ const getLeaveStats = async (filters: ILeaveFilters): Promise<ILeaveStats> => {
  */
 const getLeaveDashboard = async (): Promise<ILeaveDashboard> => {
     // Get total requests
-    const totalRequests = await prisma.leaveRequest.count();
+    const totalRequests = await LeaveModel.model.countDocuments();
 
     // Get pending requests
-    const pendingRequests = await prisma.leaveRequest.count({
-        where: { status: 'PENDING' },
-    });
+    const pendingRequests = await LeaveModel.model.countDocuments({ status: 'PENDING' });
 
     // Get approved requests
-    const approvedRequests = await prisma.leaveRequest.count({
-        where: { status: 'APPROVED' },
-    });
+    const approvedRequests = await LeaveModel.model.countDocuments({ status: 'APPROVED' });
 
     // Get rejected requests
-    const rejectedRequests = await prisma.leaveRequest.count({
-        where: { status: 'REJECTED' },
-    });
+    const rejectedRequests = await LeaveModel.model.countDocuments({ status: 'REJECTED' });
 
     // Get requests this month
     const currentMonth = new Date();
     currentMonth.setDate(1);
     currentMonth.setHours(0, 0, 0, 0);
 
-    const requestsThisMonth = await prisma.leaveRequest.count({
-        where: {
-            createdAt: { gte: currentMonth },
-        },
+    const requestsThisMonth = await LeaveModel.model.countDocuments({
+        createdAt: { $gte: currentMonth },
     });
 
     // Get monthly trend (last 6 months)
@@ -252,23 +234,17 @@ const getLeaveDashboard = async (): Promise<ILeaveDashboard> => {
         nextMonth.setMonth(nextMonth.getMonth() + 1);
 
         const [approved, rejected, pending] = await Promise.all([
-            prisma.leaveRequest.count({
-                where: {
-                    createdAt: { gte: date, lt: nextMonth },
-                    status: 'APPROVED',
-                },
+            LeaveModel.model.countDocuments({
+                createdAt: { $gte: date, $lt: nextMonth },
+                status: 'APPROVED',
             }),
-            prisma.leaveRequest.count({
-                where: {
-                    createdAt: { gte: date, lt: nextMonth },
-                    status: 'REJECTED',
-                },
+            LeaveModel.model.countDocuments({
+                createdAt: { $gte: date, $lt: nextMonth },
+                status: 'REJECTED',
             }),
-            prisma.leaveRequest.count({
-                where: {
-                    createdAt: { gte: date, lt: nextMonth },
-                    status: 'PENDING',
-                },
+            LeaveModel.model.countDocuments({
+                createdAt: { $gte: date, $lt: nextMonth },
+                status: 'PENDING',
             }),
         ]);
 
@@ -281,15 +257,10 @@ const getLeaveDashboard = async (): Promise<ILeaveDashboard> => {
     }
 
     // Get recent requests
-    const recentRequests = await prisma.leaveRequest.findMany({
-        include: {
-            user: {
-                select: { id: true, name: true, email: true },
-            },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-    });
+    const recentRequests = await LeaveModel.model.find()
+        .populate('user', 'id name email')
+        .sort({ createdAt: -1 })
+        .limit(10);
 
     return {
         totalRequests,
@@ -311,10 +282,9 @@ const updateAttendanceForApprovedLeave = async (leave: any): Promise<void> => {
     const endDate = new Date(leave.endDate);
 
     // Get all courses the student is enrolled in
-    const enrollments = await prisma.courseEnrollment.findMany({
-        where: { studentId: leave.userId },
-        include: { course: true },
-    });
+    const enrollments = await CourseEnrollmentModel.model.find({
+        studentId: leave.userId,
+    }).populate('course');
 
     // For each day of leave, mark attendance as EXCUSED for all courses
     for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
@@ -324,26 +294,18 @@ const updateAttendanceForApprovedLeave = async (leave: any): Promise<void> => {
         for (const enrollment of enrollments) {
             // Check if there's a class on this day (this would need schedule data)
             // For now, we'll mark all days as EXCUSED
-            await prisma.attendance.upsert({
-                where: {
-                    userId_courseId_date: {
-                        userId: leave.userId,
-                        courseId: enrollment.courseId,
-                        date: currentDate,
-                    },
-                },
-                update: {
-                    status: 'EXCUSED',
-                    notes: `Approved leave: ${leave.reason}`,
-                },
-                create: {
+            await AttendanceModel.model.findOneAndUpdate(
+                {
                     userId: leave.userId,
-                    courseId: enrollment.courseId,
+                    courseId: (enrollment as any).courseId,
                     date: currentDate,
+                },
+                {
                     status: 'EXCUSED',
                     notes: `Approved leave: ${leave.reason}`,
                 },
-            });
+                { upsert: true, new: true }
+            );
         }
     }
 };

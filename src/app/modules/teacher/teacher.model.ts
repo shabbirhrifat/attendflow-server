@@ -1,552 +1,542 @@
-import prisma from '../../config/prisma';
+import { Teacher } from './teacher.schema';
+import { ClassSchedule, Course, Subject } from '../course/course.schema';
+import BaseRepository from '../../repositories/BaseRepository';
+import mongoose from 'mongoose';
 
-// Teacher model operations
-export const TeacherModel = {
-    // Create a new teacher profile
-    create: async (data: any) => {
-        return await prisma.teacher.create({
-            data,
-            include: {
-                department: true,
-            },
-        });
-    },
+/**
+ * Teacher Repository using MongoDB/Mongoose
+ * Extends BaseRepository for common CRUD operations
+ */
 
-    // Find teacher by ID
-    findById: async (id: string) => {
-        return await prisma.teacher.findUnique({
-            where: { id },
-            include: {
-                department: true,
-                courses: {
-                    include: {
-                        batch: true,
-                        department: true,
-                    },
-                },
-            },
-        });
-    },
+class TeacherRepository extends BaseRepository<any> {
+  constructor() {
+    super(Teacher);
+  }
 
-    // Find teacher by user ID
-    findByUserId: async (userId: string) => {
-        return await prisma.teacher.findUnique({
-            where: { userId },
-            include: {
-                department: true,
-                courses: {
-                    include: {
-                        batch: true,
-                        department: true,
-                    },
-                },
-            },
-        });
-    },
 
-    // Find teacher by employee ID
-    findByEmployeeId: async (employeeId: string) => {
-        return await prisma.teacher.findUnique({
-            where: { employeeId },
-            include: {
-                user: true,
-                department: true,
-            },
-        });
-    },
+  /**
+   * Find teacher by employee ID
+   */
+  async findByEmployeeId(employeeId: string) {
+    return await this.model.findOne({ employeeId }).populate('user').populate('department');
+  }
 
-    // Get all teachers with optional filters
-    findMany: async (filters: any = {}) => {
-        const { departmentId, designation, specialization, isActive, status, search } = filters;
+  /**
+   * Find teacher by user ID
+   */
+  async findByUserId(userId: string) {
+    return await this.model.findOne({ userId })
+      .populate('user')
+      .populate('department')
+      .populate('courses');
+  }
 
-        const where: any = {};
+  /**
+   * Find teachers by department
+   */
+  async findByDepartment(departmentId: string) {
+    return await this.model.find({ departmentId, isActive: true })
+      .populate({
+        path: 'user',
+        select: 'id name email avatar'
+      })
+      .populate('department');
+  }
 
-        if (departmentId) where.departmentId = departmentId;
-        if (designation) where.designation = { contains: designation, mode: 'insensitive' };
-        if (specialization) where.specialization = { contains: specialization, mode: 'insensitive' };
-        if (status === 'active') {
-            where.isActive = true;
-        } else if (status === 'inactive') {
-            where.isActive = false;
-        } else if (isActive !== undefined) {
-            where.isActive = isActive;
+  /**
+   * Find active teachers
+   */
+  async findActive() {
+    return await this.model.find({ isActive: true })
+      .populate({
+        path: 'user',
+        select: 'id name email avatar status'
+      })
+      .populate('department');
+  }
+
+  /**
+   * Get teacher with populated courses
+   */
+  async findByIdWithCourses(id: string) {
+    return await this.model.findById(id)
+      .populate('user')
+      .populate('department')
+      .populate('courses');
+  }
+
+  /**
+   * Get teacher statistics
+   */
+  async getStats() {
+    const totalTeachers = await this.model.countDocuments();
+    const activeTeachers = await this.model.countDocuments({ isActive: true });
+    const inactiveTeachers = await this.model.countDocuments({ isActive: false });
+
+    // Aggregation for teachers by department
+    const teachersByDepartment = await this.model.aggregate([
+      {
+        $group: {
+          _id: '$departmentId',
+          count: { $sum: 1 }
         }
-        if (search) {
-            where.OR = [
-                { user: { name: { contains: search, mode: 'insensitive' } } },
-                { user: { email: { contains: search, mode: 'insensitive' } } },
-                { employeeId: { contains: search, mode: 'insensitive' } },
-            ];
+      }
+    ]);
+
+    // Get department names
+    const departmentIds = teachersByDepartment
+      .map(d => d._id)
+      .filter(id => id != null);
+
+    const departments = departmentIds.length > 0
+      ? await mongoose.model('Department').find({ _id: { $in: departmentIds } })
+      : [];
+
+    const teachersByDepartmentArray = teachersByDepartment.map(d => {
+      const department = departments.find((dept: any) => dept._id.toString() === d._id.toString());
+      return {
+        departmentId: d._id || 'unknown',
+        departmentName: department?.name || 'Unknown',
+        count: d.count,
+        percentage: totalTeachers > 0 ? (d.count / totalTeachers) * 100 : 0
+      };
+    });
+
+    // Aggregation for teachers by designation
+    const teachersByDesignation = await this.model.aggregate([
+      {
+        $group: {
+          _id: '$designation',
+          count: { $sum: 1 }
         }
+      }
+    ]);
 
-        return await prisma.teacher.findMany({
-            where,
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                        avatar: true,
-                    },
-                },
-                department: true,
-            },
-        });
-    },
+    const teachersByDesignationArray = teachersByDesignation.map(d => ({
+      designation: d._id || 'Unknown',
+      count: d.count,
+      percentage: totalTeachers > 0 ? (d.count / totalTeachers) * 100 : 0
+    }));
 
-    // Update teacher profile
-    update: async (id: string, data: any) => {
-        return await prisma.teacher.update({
-            where: { id },
-            data,
-            include: {
-                department: true,
-            },
-        });
-    },
+    return {
+      totalTeachers,
+      activeTeachers,
+      inactiveTeachers,
+      teachersByDepartment: teachersByDepartmentArray,
+      teachersByDesignation: teachersByDesignationArray,
+    };
+  }
 
-    // Delete teacher profile
-    delete: async (id: string) => {
-        return await prisma.teacher.delete({
-            where: { id },
-        });
-    },
+  /**
+   * Search teachers by name, email, or employee ID
+   */
+  async search(searchTerm: string) {
+    return await this.model.find({
+      $or: [
+        { employeeId: { $regex: searchTerm, $options: 'i' } },
+        { designation: { $regex: searchTerm, $options: 'i' } },
+        { specialization: { $regex: searchTerm, $options: 'i' } },
+      ]
+    })
+    .populate({
+      path: 'user',
+      select: 'id name email avatar'
+    })
+    .populate('department');
+  }
 
-    // Get teacher statistics
-    getStats: async () => {
-        const totalTeachers = await prisma.teacher.count();
-        const activeTeachers = await prisma.teacher.count({ where: { user: { status: 'ACTIVE' } } });
-        const inactiveTeachers = await prisma.teacher.count({ where: { user: { status: 'INACTIVE' } } });
+  /**
+   * Filter teachers by various criteria
+   */
+  async filter(filters: any = {}) {
+    const { departmentId, designation, specialization, isActive, status, search } = filters;
+    const query: any = {};
 
-        const teachersByDepartment = await prisma.teacher.groupBy({
-            by: ['departmentId'],
-            _count: { _all: true },
-        });
+    if (departmentId) query.departmentId = departmentId;
+    if (designation) query.designation = { $regex: designation, $options: 'i' };
+    if (specialization) query.specialization = { $regex: specialization, $options: 'i' };
+    if (status === 'active' || isActive === true) {
+      query.isActive = true;
+    } else if (status === 'inactive' || isActive === false) {
+      query.isActive = false;
+    }
 
-        const teachersByDesignation = await prisma.teacher.groupBy({
-            by: ['designation'],
-            _count: { _all: true },
-        });
+    if (search) {
+      query.$or = [
+        { employeeId: { $regex: search, $options: 'i' } },
+        { designation: { $regex: search, $options: 'i' } },
+        { specialization: { $regex: search, $options: 'i' } },
+      ];
+    }
 
-        // Get department names
-        const departments = await prisma.department.findMany({
-            where: { id: { in: teachersByDepartment.map(d => d.departmentId).filter(Boolean) as string[] } },
-            select: { id: true, name: true }
-        });
+    return await this.model.find(query)
+      .populate({
+        path: 'user',
+        select: 'id name email avatar'
+      })
+      .populate('department');
+  }
 
-        // Transform teachersByDepartment to array
-        const teachersByDepartmentArray = teachersByDepartment.map(d => {
-            const department = departments.find(dept => dept.id === d.departmentId);
-            return {
-                departmentId: d.departmentId || 'unknown',
-                departmentName: department?.name || 'Unknown',
-                count: d._count._all,
-                percentage: totalTeachers > 0 ? (d._count._all / totalTeachers) * 100 : 0
-            };
-        });
+  /**
+   * Deactivate teacher
+   */
+  async deactivate(id: string) {
+    return await this.model.findByIdAndUpdate(id, { isActive: false }, { new: true });
+  }
 
-        // Transform teachersByDesignation to array
-        const teachersByDesignationArray = teachersByDesignation.map(d => ({
-            designation: d.designation || 'Unknown',
-            count: d._count._all,
-            percentage: totalTeachers > 0 ? (d._count._all / totalTeachers) * 100 : 0
-        }));
+  /**
+   * Activate teacher
+   */
+  async activate(id: string) {
+    return await this.model.findByIdAndUpdate(id, { isActive: true }, { new: true });
+  }
 
-        return {
-            totalTeachers,
-            activeTeachers,
-            inactiveTeachers,
-            teachersByDepartment: teachersByDepartmentArray,
-            teachersByDesignation: teachersByDesignationArray,
-        };
-    },
-};
+  /**
+   * Assign teacher to department
+   */
+  async assignToDepartment(teacherId: string, departmentId: string) {
+    return await this.model.findByIdAndUpdate(teacherId, { departmentId }, { new: true });
+  }
+}
 
-// Class Schedule model operations
-export const ClassScheduleModel = {
-    // Create a new class schedule
-    create: async (data: any) => {
-        return await prisma.classSchedule.create({
-            data,
-            include: {
-                course: true,
-                batch: true,
-            },
-        });
-    },
+/**
+ * Class Schedule Repository using MongoDB/Mongoose
+ */
+class ClassScheduleRepository extends BaseRepository<any> {
+  constructor() {
+    super(ClassSchedule);
+  }
 
-    // Find schedule by ID
-    findById: async (id: string) => {
-        return await prisma.classSchedule.findUnique({
-            where: { id },
-            include: {
-                course: true,
-                batch: true,
-            },
-        });
-    },
+  /**
+   * Find schedules by teacher ID
+   */
+  async findByTeacherId(teacherId: string) {
+    return await this.model.find({ teacherId, isActive: true })
+      .populate('course')
+      .populate('batch')
+      .sort({ dayOfWeek: 1, startTime: 1 });
+  }
 
-    // Get schedules by teacher ID
-    findByTeacherId: async (teacherId: string) => {
-        return await prisma.classSchedule.findMany({
-            where: { teacherId, isActive: true },
-            include: {
-                course: true,
-                batch: true,
-            },
-            orderBy: [
-                { dayOfWeek: 'asc' },
-                { startTime: 'asc' },
-            ],
-        });
-    },
+  /**
+   * Find schedules by course ID
+   */
+  async findByCourseId(courseId: string) {
+    return await this.model.find({ courseId, isActive: true })
+      .populate('teacher')
+      .populate('batch');
+  }
 
-    // Get schedules by course ID
-    findByCourseId: async (courseId: string) => {
-        return await prisma.classSchedule.findMany({
-            where: { courseId, isActive: true },
-            include: {
-                teacher: true,
-                batch: true,
-            },
-        });
-    },
+  /**
+   * Get today's schedule for a teacher
+   */
+  async getTodaySchedule(teacherId: string) {
+    const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
+    return await this.model.find({
+      teacherId,
+      dayOfWeek: today,
+      isActive: true,
+    })
+    .populate('course')
+    .populate('batch')
+    .sort({ startTime: 1 });
+  }
 
-    // Get today's schedule for a teacher
-    getTodaySchedule: async (teacherId: string) => {
-        const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
-        const dayOfWeek = today === 0 ? 7 : today; // Convert Sunday to 7
+  /**
+   * Find schedules by batch ID
+   */
+  async findByBatchId(batchId: string) {
+    return await this.model.find({ batchId, isActive: true })
+      .populate('course')
+      .populate('teacher');
+  }
+}
 
-        return await prisma.classSchedule.findMany({
-            where: {
-                teacherId,
-                dayOfWeek,
-                isActive: true,
-            },
-            include: {
-                course: true,
-                batch: true,
-            },
-            orderBy: { startTime: 'asc' },
-        });
-    },
+/**
+ * Subject Repository using MongoDB/Mongoose
+ */
+class SubjectRepository extends BaseRepository<any> {
+  constructor() {
+    super(Subject);
+  }
 
-    // Update class schedule
-    update: async (id: string, data: any) => {
-        return await prisma.classSchedule.update({
-            where: { id },
-            data,
-            include: {
-                course: true,
-                batch: true,
-            },
-        });
-    },
+  /**
+   * Find subjects by department
+   */
+  async findByDepartment(departmentId: string) {
+    return await this.model.find({ departmentId, isActive: true })
+      .populate('department');
+  }
 
-    // Delete class schedule
-    delete: async (id: string) => {
-        return await prisma.classSchedule.delete({
-            where: { id },
-        });
-    },
-};
+  /**
+   * Search subjects by name or code
+   */
+  async search(searchTerm: string) {
+    return await this.model.find({
+      $or: [
+        { name: { $regex: searchTerm, $options: 'i' } },
+        { code: { $regex: searchTerm, $options: 'i' } },
+      ],
+      isActive: true
+    })
+    .populate('department');
+  }
 
-// Subject model operations
-export const SubjectModel = {
-    // Create a new subject
-    create: async (data: any) => {
-        return await prisma.subject.create({
-            data,
-            include: {
-                department: true,
-            },
-        });
-    },
+  /**
+   * Find subject by code
+   */
+  async findByCode(code: string) {
+    return await this.model.findOne({ code: code.toUpperCase() })
+      .populate('department');
+  }
 
-    // Find subject by ID
-    findById: async (id: string) => {
-        return await prisma.subject.findUnique({
-            where: { id },
-            include: {
-                department: true,
-                courses: true,
-            },
-        });
-    },
+  /**
+   * Filter subjects
+   */
+  async filter(filters: any = {}) {
+    const { departmentId, isActive, search } = filters;
+    const query: any = {};
 
-    // Get all subjects with optional filters
-    findMany: async (filters: any = {}) => {
-        const { departmentId, isActive, search } = filters;
+    if (departmentId) query.departmentId = departmentId;
+    if (isActive !== undefined) query.isActive = isActive;
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { code: { $regex: search, $options: 'i' } },
+      ];
+    }
 
-        const where: any = {};
+    return await this.model.find(query).populate('department');
+  }
+}
 
-        if (departmentId) where.departmentId = departmentId;
-        if (isActive !== undefined) where.isActive = isActive;
-        if (search) {
-            where.OR = [
-                { name: { contains: search, mode: 'insensitive' } },
-                { code: { contains: search, mode: 'insensitive' } },
-            ];
-        }
+/**
+ * Teacher Attendance Repository using MongoDB/Mongoose
+ */
+class TeacherAttendanceRepository extends BaseRepository<any> {
+  constructor() {
+    // Will use Attendance model from attendance module
+    super(mongoose.model('Attendance'));
+  }
 
-        return await prisma.subject.findMany({
-            where,
-            include: {
-                department: true,
-            },
-        });
-    },
+  /**
+   * Mark attendance for a student
+   */
+  async markAttendance(data: any) {
+    const { studentId, courseId, date, status, checkIn, checkOut, notes, markedBy, attendanceSessionId } = data;
 
-    // Update subject
-    update: async (id: string, data: any) => {
-        return await prisma.subject.update({
-            where: { id },
-            data,
-            include: {
-                department: true,
-            },
-        });
-    },
+    const attendanceDate = new Date(date);
+    attendanceDate.setHours(0, 0, 0, 0);
 
-    // Delete subject
-    delete: async (id: string) => {
-        return await prisma.subject.delete({
-            where: { id },
-        });
-    },
-};
+    return await this.model.findOneAndUpdate(
+      { userId: studentId, courseId, date: attendanceDate },
+      {
+        userId: studentId,
+        courseId,
+        date: attendanceDate,
+        status,
+        checkIn: checkIn ? new Date(checkIn) : undefined,
+        checkOut: checkOut ? new Date(checkOut) : undefined,
+        notes,
+        markedBy,
+        attendanceSessionId,
+      },
+      { upsert: true, new: true }
+    )
+    .populate('course')
+    .populate('marker', 'id name email');
+  }
 
+  /**
+   * Bulk mark attendance
+   */
+  async bulkMarkAttendance(courseId: string, date: Date, attendances: any[], markedBy: string) {
+    const attendanceDate = new Date(date);
+    attendanceDate.setHours(0, 0, 0, 0);
 
-// Attendance model operations for teachers
-export const TeacherAttendanceModel = {
-    // Mark attendance for a student
-    markAttendance: async (data: any) => {
-        const { studentId, courseId, date, status, checkIn, checkOut, notes, markedBy } = data;
-
-        return await prisma.attendance.upsert({
-            where: {
-                userId_courseId_date: {
-                    userId: studentId,
-                    courseId,
-                    date: new Date(date),
-                },
-            },
-            update: {
-                status,
-                checkIn: checkIn ? new Date(checkIn) : null,
-                checkOut: checkOut ? new Date(checkOut) : null,
-                notes,
-                markedBy,
-            },
-            create: {
-                userId: studentId,
-                courseId,
-                date: new Date(date),
-                status,
-                checkIn: checkIn ? new Date(checkIn) : null,
-                checkOut: checkOut ? new Date(checkOut) : null,
-                notes,
-                markedBy,
-            },
-            include: {
-                course: true,
-                marker: {
-                    select: { id: true, name: true, email: true },
-                },
-            },
-        });
-    },
-
-    // Bulk mark attendance
-    bulkMarkAttendance: async (courseId: string, date: Date, attendances: any[], markedBy: string) => {
-        const results = [];
-
-        for (const attendance of attendances) {
-            const result = await prisma.attendance.upsert({
-                where: {
-                    userId_courseId_date: {
-                        userId: attendance.studentId,
-                        courseId,
-                        date: new Date(date),
-                    },
-                },
-                update: {
-                    status: attendance.status,
-                    checkIn: attendance.checkIn ? new Date(attendance.checkIn) : null,
-                    checkOut: attendance.checkOut ? new Date(attendance.checkOut) : null,
-                    notes: attendance.notes,
-                    markedBy,
-                },
-                create: {
-                    userId: attendance.studentId,
-                    courseId,
-                    date: new Date(date),
-                    status: attendance.status,
-                    checkIn: attendance.checkIn ? new Date(attendance.checkIn) : null,
-                    checkOut: attendance.checkOut ? new Date(attendance.checkOut) : null,
-                    notes: attendance.notes,
-                    markedBy,
-                },
-                include: {
-                    user: true,
-                    course: true,
-                },
-            });
-
-            results.push(result);
-        }
-
-        return results;
-    },
-
-    // Get attendance records for a course
-    getCourseAttendance: async (courseId: string, filters: any = {}) => {
-        const { startDate, endDate, status } = filters;
-
-        const where: any = { courseId };
-
-        if (startDate || endDate) {
-            where.date = {};
-            if (startDate) where.date.gte = new Date(startDate);
-            if (endDate) where.date.lte = new Date(endDate);
-        }
-
-        if (status) where.status = status;
-
-        return await prisma.attendance.findMany({
-            where,
-            include: {
-                user: {
-                    select: { id: true, name: true, email: true },
-                },
-                course: true,
-                marker: {
-                    select: { id: true, name: true, email: true },
-                },
-            },
-            orderBy: [
-                { date: 'desc' },
-                { user: { name: 'asc' } },
-            ],
-        });
-    },
-
-    // Get attendance summary for a course
-    getCourseAttendanceSummary: async (courseId: string, startDate?: Date, endDate?: Date) => {
-        const where: any = { courseId };
-
-        if (startDate || endDate) {
-            where.date = {};
-            if (startDate) where.date.gte = startDate;
-            if (endDate) where.date.lte = endDate;
-        }
-
-        const attendances = await prisma.attendance.findMany({
-            where,
-            include: {
-                user: {
-                    select: { id: true, name: true },
-                },
-            },
-        });
-
-        // Calculate statistics
-        const totalClasses = new Set(attendances.map((a: any) => a.date.toISOString())).size;
-        const statusCounts = attendances.reduce((acc: Record<string, number>, attendance: any) => {
-            acc[attendance.status] = (acc[attendance.status] || 0) + 1;
-            return acc;
-        }, {});
-
-        // Group by student
-        const studentBreakdown = attendances.reduce((acc: Record<string, any>, attendance: any) => {
-            const studentId = attendance.userId;
-            if (!acc[studentId]) {
-                acc[studentId] = {
-                    studentId,
-                    name: attendance.user.name,
-                    total: 0,
-                    present: 0,
-                    absent: 0,
-                    late: 0,
-                    excused: 0,
-                };
-            }
-
-            acc[studentId].total++;
-            acc[studentId][attendance.status.toLowerCase()]++;
-
-            return acc;
-        }, {});
-
-        // Calculate attendance percentage for each student
-        const studentStats = Object.values(studentBreakdown).map((student: any) => ({
-            studentId: student.studentId,
-            name: student.name,
-            attendancePercentage: totalClasses > 0 ? (student.present / totalClasses) * 100 : 0,
-        }));
-
-        return {
+    const operations = attendances.map(attendance => ({
+      updateOne: {
+        filter: { userId: attendance.studentId, courseId, date: attendanceDate },
+        update: {
+          $set: {
+            userId: attendance.studentId,
             courseId,
-            totalClasses,
-            presentCount: statusCounts.PRESENT || 0,
-            absentCount: statusCounts.ABSENT || 0,
-            lateCount: statusCounts.LATE || 0,
-            excusedCount: statusCounts.EXCUSED || 0,
-            attendancePercentage: totalClasses > 0 ? ((statusCounts.PRESENT || 0) / (totalClasses * Object.keys(studentBreakdown).length)) * 100 : 0,
-            studentBreakdown: studentStats,
+            date: attendanceDate,
+            status: attendance.status,
+            checkIn: attendance.checkIn ? new Date(attendance.checkIn) : undefined,
+            checkOut: attendance.checkOut ? new Date(attendance.checkOut) : undefined,
+            notes: attendance.notes,
+            markedBy,
+          }
+        },
+        upsert: true,
+      }
+    }));
+
+    await this.model.bulkWrite(operations);
+
+    return await this.model.find({ courseId, date: attendanceDate })
+      .populate('user', 'id name email')
+      .populate('course');
+  }
+
+  /**
+   * Get attendance records for a course
+   */
+  async getCourseAttendance(courseId: string, filters: any = {}) {
+    const { startDate, endDate, status } = filters;
+    const query: any = { courseId };
+
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) query.date.$gte = new Date(startDate);
+      if (endDate) query.date.$lte = new Date(endDate);
+    }
+
+    if (status) query.status = status;
+
+    return await this.model.find(query)
+      .populate('user', 'id name email')
+      .populate('course')
+      .populate('marker', 'id name email')
+      .sort({ date: -1 });
+  }
+
+  /**
+   * Get attendance summary for a course
+   */
+  async getCourseAttendanceSummary(courseId: string, startDate?: Date, endDate?: Date) {
+    const matchQuery: any = { courseId };
+
+    if (startDate || endDate) {
+      matchQuery.date = {};
+      if (startDate) matchQuery.date.$gte = startDate;
+      if (endDate) matchQuery.date.$lte = endDate;
+    }
+
+    const attendances = await this.model.find(matchQuery)
+      .populate('user', 'id name');
+
+    // Calculate statistics using aggregation
+    const stats = await this.model.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: null,
+          totalClasses: { $addToSet: '$date' },
+          statusCounts: {
+            $push: '$status'
+          }
+        }
+      }
+    ]);
+
+    const totalClasses = stats[0]?.totalClasses?.length || 0;
+    const statusCounts = stats[0]?.statusCounts?.reduce((acc: any, s: string) => {
+      acc[s] = (acc[s] || 0) + 1;
+      return acc;
+    }, {}) || {};
+
+    // Group by student
+    const studentBreakdown = attendances.reduce((acc: any, attendance: any) => {
+      const studentId = attendance.userId?.toString() || attendance.userId;
+      if (!acc[studentId]) {
+        acc[studentId] = {
+          studentId,
+          name: (attendance.user as any)?.name || 'Unknown',
+          total: 0,
+          present: 0,
+          absent: 0,
+          late: 0,
+          excused: 0,
         };
-    },
-};
+      }
 
-// Leave model operations for teachers
-export const TeacherLeaveModel = {
-    // Get pending leave requests for teacher approval
-    getPendingLeaves: async (teacherId: string) => {
-        return await prisma.leaveRequest.findMany({
-            where: {
-                status: 'PENDING',
-            },
-            include: {
-                user: {
-                    select: { id: true, name: true, email: true },
-                },
-            },
-            orderBy: { createdAt: 'asc' },
-        });
-    },
+      acc[studentId].total++;
+      acc[studentId][attendance.status.toLowerCase()]++;
 
-    // Approve or reject leave request
-    processLeaveRequest: async (leaveId: string, status: 'APPROVED' | 'REJECTED', approvedBy: string, rejectionReason?: string) => {
-        return await prisma.leaveRequest.update({
-            where: { id: leaveId },
-            data: {
-                status,
-                approvedBy,
-                approvedAt: new Date(),
-                rejectionReason,
-            },
-            include: {
-                user: {
-                    select: { id: true, name: true, email: true },
-                },
-                approver: {
-                    select: { id: true, name: true, email: true },
-                },
-            },
-        });
-    },
+      return acc;
+    }, {});
 
-    // Get leave requests processed by a teacher
-    getProcessedLeaves: async (teacherId: string) => {
-        return await prisma.leaveRequest.findMany({
-            where: { approvedBy: teacherId },
-            include: {
-                user: {
-                    select: { id: true, name: true, email: true },
-                },
-            },
-            orderBy: { approvedAt: 'desc' },
-        });
-    },
-};
+    const studentStats = Object.values(studentBreakdown).map((student: any) => ({
+      studentId: student.studentId,
+      name: student.name,
+      attendancePercentage: totalClasses > 0 ? (student.present / totalClasses) * 100 : 0,
+    }));
+
+    return {
+      courseId,
+      totalClasses,
+      presentCount: statusCounts.PRESENT || 0,
+      absentCount: statusCounts.ABSENT || 0,
+      lateCount: statusCounts.LATE || 0,
+      excusedCount: statusCounts.EXCUSED || 0,
+      attendancePercentage: totalClasses > 0 && Object.keys(studentBreakdown).length > 0
+        ? ((statusCounts.PRESENT || 0) / (totalClasses * Object.keys(studentBreakdown).length)) * 100
+        : 0,
+      studentBreakdown: studentStats,
+    };
+  }
+}
+
+/**
+ * Teacher Leave Repository using MongoDB/Mongoose
+ */
+class TeacherLeaveRepository extends BaseRepository<any> {
+  constructor() {
+    // Will use LeaveRequest model from leave module
+    super(mongoose.model('LeaveRequest'));
+  }
+
+  /**
+   * Get pending leave requests
+   */
+  async getPendingLeaves() {
+    return await this.model.find({ status: 'PENDING' })
+      .populate('user', 'id name email')
+      .sort({ createdAt: 1 });
+  }
+
+  /**
+   * Approve or reject leave request
+   */
+  async processLeaveRequest(leaveId: string, status: 'APPROVED' | 'REJECTED', approvedBy: string, rejectionReason?: string) {
+    return await this.model.findByIdAndUpdate(
+      leaveId,
+      {
+        status,
+        approvedBy,
+        approvedAt: new Date(),
+        ...(rejectionReason && { rejectionReason }),
+      },
+      { new: true }
+    )
+    .populate('user', 'id name email')
+    .populate('approver', 'id name email');
+  }
+
+  /**
+   * Get leave requests processed by a teacher
+   */
+  async getProcessedLeaves(teacherId: string) {
+    return await this.model.find({ approvedBy: teacherId })
+      .populate('user', 'id name email')
+      .sort({ approvedAt: -1 });
+  }
+}
+
+// Create singleton instances
+const teacherRepository = new TeacherRepository();
+const classScheduleRepository = new ClassScheduleRepository();
+const subjectRepository = new SubjectRepository();
+const teacherAttendanceRepository = new TeacherAttendanceRepository();
+const teacherLeaveRepository = new TeacherLeaveRepository();
+
+// Export for backward compatibility
+export { Teacher, Course, Subject, ClassSchedule };
+export const TeacherModel = teacherRepository;
+export const ClassScheduleModel = classScheduleRepository;
+export const SubjectModel = subjectRepository;
+export const TeacherAttendanceModel = teacherAttendanceRepository;
+export const TeacherLeaveModel = teacherLeaveRepository;
+
+export default teacherRepository;

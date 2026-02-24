@@ -27,6 +27,9 @@ import {
     IOrganizationResponse
 } from './organization.interface';
 import { DepartmentModel, SemesterModel, BatchModel, SubjectModel } from './organization.model';
+import { StudentModel } from '../student/student.model';
+import { TeacherModel } from '../teacher/teacher.model';
+import { CourseModel } from '../course/course.model';
 import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
 
@@ -34,26 +37,20 @@ import { StatusCodes } from 'http-status-codes';
 export const createDepartment = async (data: IDepartmentCreate): Promise<Department> => {
     try {
         // Check if department name already exists
-        const existingDepartmentByName = await DepartmentModel.findFirst({
-            where: { name: data.name },
-        });
+        const existingDepartmentByName = await DepartmentModel.model.findOne({ name: data.name });
 
         if (existingDepartmentByName) {
             throw new AppError(StatusCodes.CONFLICT, 'Department with this name already exists');
         }
 
         // Check if department code already exists
-        const existingDepartmentByCode = await DepartmentModel.findFirst({
-            where: { code: data.code },
-        });
+        const existingDepartmentByCode = await DepartmentModel.model.findOne({ code: data.code });
 
         if (existingDepartmentByCode) {
             throw new AppError(StatusCodes.CONFLICT, 'Department with this code already exists');
         }
 
-        return await DepartmentModel.create({
-            data,
-        }) as unknown as Department;
+        return await DepartmentModel.model.create(data);
     } catch (error) {
         throw error;
     }
@@ -61,42 +58,31 @@ export const createDepartment = async (data: IDepartmentCreate): Promise<Departm
 
 export const getDepartmentById = async (id: string): Promise<IDepartmentWithRelations | null> => {
     try {
-        const department = await DepartmentModel.findUnique({
-            where: { id },
-            include: {
-                students: {
-                    include: {
-                        user: {
-                            select: { id: true, name: true, email: true },
-                        },
-                        batch: true,
-                    },
-                },
-                teachers: {
-                    include: {
-                        user: {
-                            select: { id: true, name: true, email: true },
-                        },
-                    },
-                },
-                subjects: true,
-                semesters: true,
-                _count: {
-                    select: {
-                        students: true,
-                        teachers: true,
-                        subjects: true,
-                        semesters: true,
-                    },
-                },
-            },
-        });
+        const department = await DepartmentModel.model.findById(id)
+            .populate('head')
+            .lean();
 
         if (!department) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
         }
 
-        return department as unknown as IDepartmentWithRelations;
+        // Get related counts manually
+        const [studentCount, teacherCount, subjectCount, semesterCount] = await Promise.all([
+            StudentModel.model.countDocuments({ departmentId: id }),
+            TeacherModel.model.countDocuments({ departmentId: id }),
+            SubjectModel.model.countDocuments({ departmentId: id }),
+            SemesterModel.model.countDocuments({ departmentId: id }),
+        ]);
+
+        return {
+            ...department,
+            _count: {
+                students: studentCount,
+                teachers: teacherCount,
+                subjects: subjectCount,
+                semesters: semesterCount,
+            },
+        } as unknown as IDepartmentWithRelations;
     } catch (error) {
         throw error;
     }
@@ -105,9 +91,7 @@ export const getDepartmentById = async (id: string): Promise<IDepartmentWithRela
 export const updateDepartment = async (id: string, data: IDepartmentUpdate): Promise<Department> => {
     try {
         // Check if department exists
-        const existingDepartment = await DepartmentModel.findUnique({
-            where: { id },
-        });
+        const existingDepartment = await DepartmentModel.model.findById(id);
 
         if (!existingDepartment) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
@@ -115,11 +99,9 @@ export const updateDepartment = async (id: string, data: IDepartmentUpdate): Pro
 
         // If updating name, check if it's already taken by another department
         if (data.name) {
-            const existingDepartmentByName = await DepartmentModel.findFirst({
-                where: {
-                    name: data.name,
-                    id: { not: id },
-                },
+            const existingDepartmentByName = await DepartmentModel.model.findOne({
+                name: data.name,
+                _id: { $ne: id },
             });
 
             if (existingDepartmentByName) {
@@ -129,11 +111,9 @@ export const updateDepartment = async (id: string, data: IDepartmentUpdate): Pro
 
         // If updating code, check if it's already taken by another department
         if (data.code) {
-            const existingDepartmentByCode = await DepartmentModel.findFirst({
-                where: {
-                    code: data.code,
-                    id: { not: id },
-                },
+            const existingDepartmentByCode = await DepartmentModel.model.findOne({
+                code: data.code,
+                _id: { $ne: id },
             });
 
             if (existingDepartmentByCode) {
@@ -141,10 +121,7 @@ export const updateDepartment = async (id: string, data: IDepartmentUpdate): Pro
             }
         }
 
-        return await DepartmentModel.update({
-            where: { id },
-            data,
-        }) as unknown as Department;
+        return await DepartmentModel.model.findByIdAndUpdate(id, data, { new: true }) as unknown as Department;
     } catch (error) {
         throw error;
     }
@@ -153,39 +130,32 @@ export const updateDepartment = async (id: string, data: IDepartmentUpdate): Pro
 export const deleteDepartment = async (id: string): Promise<void> => {
     try {
         // Check if department exists
-        const existingDepartment = await DepartmentModel.findUnique({
-            where: { id },
-        });
+        const existingDepartment = await DepartmentModel.model.findById(id);
 
         if (!existingDepartment) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
         }
 
         // Check if department has students, teachers, or subjects
-        const departmentWithRelations = await DepartmentModel.findUnique({
-            where: { id },
-            include: {
-                students: { take: 1 },
-                teachers: { take: 1 },
-                subjects: { take: 1 },
-            },
-        });
+        const [studentCount, teacherCount, subjectCount] = await Promise.all([
+            StudentModel.model.countDocuments({ departmentId: id }),
+            TeacherModel.model.countDocuments({ departmentId: id }),
+            SubjectModel.model.countDocuments({ departmentId: id }),
+        ]);
 
-        if (departmentWithRelations?.students && departmentWithRelations.students.length > 0) {
+        if (studentCount > 0) {
             throw new AppError(StatusCodes.CONFLICT, 'Cannot delete department with associated students');
         }
 
-        if (departmentWithRelations?.teachers && departmentWithRelations.teachers.length > 0) {
+        if (teacherCount > 0) {
             throw new AppError(StatusCodes.CONFLICT, 'Cannot delete department with associated teachers');
         }
 
-        if (departmentWithRelations?.subjects && departmentWithRelations.subjects.length > 0) {
+        if (subjectCount > 0) {
             throw new AppError(StatusCodes.CONFLICT, 'Cannot delete department with associated subjects');
         }
 
-        await DepartmentModel.delete({
-            where: { id },
-        });
+        await DepartmentModel.model.findByIdAndDelete(id);
     } catch (error) {
         throw error;
     }
@@ -195,44 +165,34 @@ export const getAllDepartments = async (filters: IDepartmentFilters = {}): Promi
     try {
         const { isActive, status, search, headId, page = 1, limit = 10 } = filters;
 
-        const where: any = {};
+        const query: any = {};
 
         if (status === 'active') {
-            where.isActive = true;
+            query.isActive = true;
         } else if (status === 'inactive') {
-            where.isActive = false;
+            query.isActive = false;
         } else if (isActive !== undefined) {
-            where.isActive = isActive;
+            query.isActive = isActive;
         }
-        if (headId) where.headId = headId;
+        if (headId) query.headId = headId;
         if (search) {
-            where.OR = [
-                { name: { contains: search, mode: 'insensitive' } },
-                { code: { contains: search, mode: 'insensitive' } },
-                { description: { contains: search, mode: 'insensitive' } },
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { code: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } },
             ];
         }
 
         const skip = (page - 1) * limit;
 
         const [departments, total] = await Promise.all([
-            DepartmentModel.findMany({
-                where,
-                include: {
-                    _count: {
-                        select: {
-                            students: true,
-                            teachers: true,
-                            subjects: true,
-                            semesters: true,
-                        },
-                    },
-                },
-                orderBy: { name: 'asc' },
-                skip,
-                take: limit,
-            }) as unknown as Department[],
-            DepartmentModel.count({ where }),
+            DepartmentModel.model.find(query)
+                .populate('head')
+                .sort({ name: 1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            DepartmentModel.model.countDocuments(query),
         ]);
 
         const meta = {
@@ -255,21 +215,25 @@ export const getAllDepartments = async (filters: IDepartmentFilters = {}): Promi
 
 export const getDepartmentStats = async (): Promise<IDepartmentStats> => {
     try {
-        const totalDepartments = await DepartmentModel.count();
-        const activeDepartments = await DepartmentModel.count({ where: { isActive: true } });
-        const inactiveDepartments = await DepartmentModel.count({ where: { isActive: false } });
+        const totalDepartments = await DepartmentModel.model.countDocuments();
+        const activeDepartments = await DepartmentModel.model.countDocuments({ isActive: true });
+        const inactiveDepartments = await DepartmentModel.model.countDocuments({ isActive: false });
 
-        const departmentsByHeadCount = await DepartmentModel.groupBy({
-            by: ['headId'],
-            _count: true,
-        });
+        const departmentsByHeadCount = await DepartmentModel.model.aggregate([
+            {
+                $group: {
+                    _id: '$headId',
+                    count: { $sum: 1 },
+                },
+            },
+        ]);
 
         return {
             totalDepartments,
             activeDepartments,
             inactiveDepartments,
             departmentsByHeadCount: departmentsByHeadCount.reduce((acc: Record<string, number>, item: any) => {
-                acc[item.headId || 'Unassigned'] = item._count;
+                acc[item._id?.toString() || 'Unassigned'] = item.count;
                 return acc;
             }, {}),
         };
@@ -282,21 +246,17 @@ export const getDepartmentStats = async (): Promise<IDepartmentStats> => {
 export const createSemester = async (data: ISemesterCreate): Promise<Semester> => {
     try {
         // Check if semester with same name, year, and department already exists
-        const existingSemester = await SemesterModel.findFirst({
-            where: {
-                name: data.name,
-                year: data.year,
-                departmentId: data.departmentId,
-            },
+        const existingSemester = await SemesterModel.model.findOne({
+            name: data.name,
+            year: data.year,
+            departmentId: data.departmentId,
         });
 
         if (existingSemester) {
             throw new AppError(StatusCodes.CONFLICT, 'Semester with this name and year already exists for this department');
         }
 
-        return await SemesterModel.create({
-            data,
-        });
+        return await SemesterModel.model.create(data);
     } catch (error) {
         throw error;
     }
@@ -304,29 +264,23 @@ export const createSemester = async (data: ISemesterCreate): Promise<Semester> =
 
 export const getSemesterById = async (id: string): Promise<ISemesterWithRelations | null> => {
     try {
-        const semester = await SemesterModel.findUnique({
-            where: { id },
-            include: {
-                department: true,
-                courses: {
-                    include: {
-                        batch: true,
-                        subject: true,
-                    },
-                },
-                _count: {
-                    select: {
-                        courses: true,
-                    },
-                },
-            },
-        });
+        const semester = await SemesterModel.model.findById(id)
+            .populate('department')
+            .lean();
 
         if (!semester) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Semester not found');
         }
 
-        return semester as unknown as ISemesterWithRelations;
+        // Get course count
+        const courseCount = await CourseModel.model.countDocuments({ semesterInfo: id });
+
+        return {
+            ...semester,
+            _count: {
+                courses: courseCount,
+            },
+        } as unknown as ISemesterWithRelations;
     } catch (error) {
         throw error;
     }
@@ -335,9 +289,7 @@ export const getSemesterById = async (id: string): Promise<ISemesterWithRelation
 export const updateSemester = async (id: string, data: ISemesterUpdate): Promise<Semester> => {
     try {
         // Check if semester exists
-        const existingSemester = await SemesterModel.findUnique({
-            where: { id },
-        });
+        const existingSemester = await SemesterModel.model.findById(id);
 
         if (!existingSemester) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Semester not found');
@@ -345,25 +297,20 @@ export const updateSemester = async (id: string, data: ISemesterUpdate): Promise
 
         // If updating name, year, or department, check for duplicates
         if (data.name || data.year || data.departmentId) {
-            const whereClause: any = { id: { not: id } };
+            const whereClause: any = { _id: { $ne: id } };
 
             if (data.name) whereClause.name = data.name;
             if (data.year) whereClause.year = data.year;
             if (data.departmentId) whereClause.departmentId = data.departmentId;
 
-            const existingSemester = await SemesterModel.findFirst({
-                where: whereClause,
-            });
+            const duplicateSemester = await SemesterModel.model.findOne(whereClause);
 
-            if (existingSemester) {
+            if (duplicateSemester) {
                 throw new AppError(StatusCodes.CONFLICT, 'Semester with these details already exists');
             }
         }
 
-        return await SemesterModel.update({
-            where: { id },
-            data,
-        });
+        return await SemesterModel.model.findByIdAndUpdate(id, data, { new: true });
     } catch (error) {
         throw error;
     }
@@ -372,29 +319,20 @@ export const updateSemester = async (id: string, data: ISemesterUpdate): Promise
 export const deleteSemester = async (id: string): Promise<void> => {
     try {
         // Check if semester exists
-        const existingSemester = await SemesterModel.findUnique({
-            where: { id },
-        });
+        const existingSemester = await SemesterModel.model.findById(id);
 
         if (!existingSemester) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Semester not found');
         }
 
         // Check if semester has courses
-        const semesterWithCourses = await SemesterModel.findUnique({
-            where: { id },
-            include: {
-                courses: { take: 1 },
-            },
-        });
+        const courseCount = await CourseModel.model.countDocuments({ semesterInfo: id });
 
-        if (semesterWithCourses?.courses && semesterWithCourses.courses.length > 0) {
+        if (courseCount > 0) {
             throw new AppError(StatusCodes.CONFLICT, 'Cannot delete semester with associated courses');
         }
 
-        await SemesterModel.delete({
-            where: { id },
-        });
+        await SemesterModel.model.findByIdAndDelete(id);
     } catch (error) {
         throw error;
     }
@@ -404,38 +342,27 @@ export const getAllSemesters = async (filters: ISemesterFilters = {}): Promise<{
     try {
         const { departmentId, year, isActive, search, page = 1, limit = 10 } = filters;
 
-        const where: any = {};
+        const query: any = {};
 
-        if (departmentId) where.departmentId = departmentId;
-        if (year) where.year = year;
-        if (isActive !== undefined) where.isActive = isActive;
+        if (departmentId) query.departmentId = departmentId;
+        if (year) query.year = year;
+        if (isActive !== undefined) query.isActive = isActive;
         if (search) {
-            where.OR = [
-                { name: { contains: search, mode: 'insensitive' } },
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
             ];
         }
 
         const skip = (page - 1) * limit;
 
         const [semesters, total] = await Promise.all([
-            SemesterModel.findMany({
-                where,
-                include: {
-                    department: true,
-                    _count: {
-                        select: {
-                            courses: true,
-                        },
-                    },
-                },
-                orderBy: [
-                    { year: 'desc' },
-                    { name: 'asc' },
-                ],
-                skip,
-                take: limit,
-            }),
-            SemesterModel.count({ where }),
+            SemesterModel.model.find(query)
+                .populate('department')
+                .sort({ year: -1, name: 1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            SemesterModel.model.countDocuments(query),
         ]);
 
         const meta = {
@@ -458,30 +385,38 @@ export const getAllSemesters = async (filters: ISemesterFilters = {}): Promise<{
 
 export const getSemesterStats = async (): Promise<ISemesterStats> => {
     try {
-        const totalSemesters = await SemesterModel.count();
-        const activeSemesters = await SemesterModel.count({ where: { isActive: true } });
-        const inactiveSemesters = await SemesterModel.count({ where: { isActive: false } });
+        const totalSemesters = await SemesterModel.model.countDocuments();
+        const activeSemesters = await SemesterModel.model.countDocuments({ isActive: true });
+        const inactiveSemesters = await SemesterModel.model.countDocuments({ isActive: false });
 
-        const semestersByYear = await SemesterModel.groupBy({
-            by: ['year'],
-            _count: true,
-        });
+        const semestersByYear = await SemesterModel.model.aggregate([
+            {
+                $group: {
+                    _id: '$year',
+                    count: { $sum: 1 },
+                },
+            },
+        ]);
 
-        const semestersByDepartment = await SemesterModel.groupBy({
-            by: ['departmentId'],
-            _count: true,
-        });
+        const semestersByDepartment = await SemesterModel.model.aggregate([
+            {
+                $group: {
+                    _id: '$departmentId',
+                    count: { $sum: 1 },
+                },
+            },
+        ]);
 
         return {
             totalSemesters,
             activeSemesters,
             inactiveSemesters,
             semestersByYear: semestersByYear.reduce((acc: Record<number, number>, item: any) => {
-                acc[item.year] = item._count;
+                acc[item._id] = item.count;
                 return acc;
             }, {}),
             semestersByDepartment: semestersByDepartment.reduce((acc: Record<string, number>, item: any) => {
-                acc[item.departmentId] = item._count;
+                acc[item._id?.toString()] = item.count;
                 return acc;
             }, {}),
         };
@@ -494,17 +429,13 @@ export const getSemesterStats = async (): Promise<ISemesterStats> => {
 export const createBatch = async (data: IBatchCreate): Promise<Batch> => {
     try {
         // Check if batch name already exists
-        const existingBatch = await BatchModel.findFirst({
-            where: { name: data.name },
-        });
+        const existingBatch = await BatchModel.model.findOne({ name: data.name });
 
         if (existingBatch) {
             throw new AppError(StatusCodes.CONFLICT, 'Batch with this name already exists');
         }
 
-        return await BatchModel.create({
-            data,
-        }) as unknown as Batch;
+        return await BatchModel.model.create(data);
     } catch (error) {
         throw error;
     }
@@ -512,37 +443,25 @@ export const createBatch = async (data: IBatchCreate): Promise<Batch> => {
 
 export const getBatchById = async (id: string): Promise<IBatchWithRelations | null> => {
     try {
-        const batch = await BatchModel.findUnique({
-            where: { id },
-            include: {
-                students: {
-                    include: {
-                        user: {
-                            select: { id: true, name: true, email: true },
-                        },
-                        department: true,
-                    },
-                },
-                courses: {
-                    include: {
-                        department: true,
-                        subject: true,
-                    },
-                },
-                _count: {
-                    select: {
-                        students: true,
-                        courses: true,
-                    },
-                },
-            },
-        });
+        const batch = await BatchModel.model.findById(id).lean();
 
         if (!batch) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Batch not found');
         }
 
-        return batch as unknown as IBatchWithRelations;
+        // Get counts
+        const [studentCount, courseCount] = await Promise.all([
+            StudentModel.model.countDocuments({ batchId: id }),
+            CourseModel.model.countDocuments({ batchId: id }),
+        ]);
+
+        return {
+            ...batch,
+            _count: {
+                students: studentCount,
+                courses: courseCount,
+            },
+        } as unknown as IBatchWithRelations;
     } catch (error) {
         throw error;
     }
@@ -551,9 +470,7 @@ export const getBatchById = async (id: string): Promise<IBatchWithRelations | nu
 export const updateBatch = async (id: string, data: IBatchUpdate): Promise<Batch> => {
     try {
         // Check if batch exists
-        const existingBatch = await BatchModel.findUnique({
-            where: { id },
-        });
+        const existingBatch = await BatchModel.model.findById(id);
 
         if (!existingBatch) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Batch not found');
@@ -561,11 +478,9 @@ export const updateBatch = async (id: string, data: IBatchUpdate): Promise<Batch
 
         // If updating name, check if it's already taken by another batch
         if (data.name) {
-            const existingBatchByName = await BatchModel.findFirst({
-                where: {
-                    name: data.name,
-                    id: { not: id },
-                },
+            const existingBatchByName = await BatchModel.model.findOne({
+                name: data.name,
+                _id: { $ne: id },
             });
 
             if (existingBatchByName) {
@@ -573,10 +488,7 @@ export const updateBatch = async (id: string, data: IBatchUpdate): Promise<Batch
             }
         }
 
-        return await BatchModel.update({
-            where: { id },
-            data,
-        }) as unknown as Batch;
+        return await BatchModel.model.findByIdAndUpdate(id, data, { new: true }) as unknown as Batch;
     } catch (error) {
         throw error;
     }
@@ -585,34 +497,27 @@ export const updateBatch = async (id: string, data: IBatchUpdate): Promise<Batch
 export const deleteBatch = async (id: string): Promise<void> => {
     try {
         // Check if batch exists
-        const existingBatch = await BatchModel.findUnique({
-            where: { id },
-        });
+        const existingBatch = await BatchModel.model.findById(id);
 
         if (!existingBatch) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Batch not found');
         }
 
         // Check if batch has students or courses
-        const batchWithRelations = await BatchModel.findUnique({
-            where: { id },
-            include: {
-                students: { take: 1 },
-                courses: { take: 1 },
-            },
-        });
+        const [studentCount, courseCount] = await Promise.all([
+            StudentModel.model.countDocuments({ batchId: id }),
+            CourseModel.model.countDocuments({ batchId: id }),
+        ]);
 
-        if (batchWithRelations?.students && batchWithRelations.students.length > 0) {
+        if (studentCount > 0) {
             throw new AppError(StatusCodes.CONFLICT, 'Cannot delete batch with associated students');
         }
 
-        if (batchWithRelations?.courses && batchWithRelations.courses.length > 0) {
+        if (courseCount > 0) {
             throw new AppError(StatusCodes.CONFLICT, 'Cannot delete batch with associated courses');
         }
 
-        await BatchModel.delete({
-            where: { id },
-        });
+        await BatchModel.model.findByIdAndDelete(id);
     } catch (error) {
         throw error;
     }
@@ -622,44 +527,32 @@ export const getAllBatches = async (filters: IBatchFilters = {}): Promise<{ data
     try {
         const { year, isActive, status, search, page = 1, limit = 10 } = filters;
 
-        const where: any = {};
+        const query: any = {};
 
-        if (year) where.year = year;
+        if (year) query.year = year;
         if (status === 'active') {
-            where.isActive = true;
+            query.isActive = true;
         } else if (status === 'inactive') {
-            where.isActive = false;
+            query.isActive = false;
         } else if (isActive !== undefined) {
-            where.isActive = isActive;
+            query.isActive = isActive;
         }
         if (search) {
-            where.OR = [
-                { name: { contains: search, mode: 'insensitive' } },
-                { description: { contains: search, mode: 'insensitive' } },
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } },
             ];
         }
 
         const skip = (page - 1) * limit;
 
         const [batches, total] = await Promise.all([
-            BatchModel.findMany({
-                where,
-                include: {
-                    _count: {
-                        select: {
-                            students: true,
-                            courses: true,
-                        },
-                    },
-                },
-                orderBy: [
-                    { year: 'desc' },
-                    { name: 'asc' },
-                ],
-                skip,
-                take: limit,
-            }) as unknown as Batch[],
-            BatchModel.count({ where }),
+            BatchModel.model.find(query)
+                .sort({ year: -1, name: 1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            BatchModel.model.countDocuments(query),
         ]);
 
         const meta = {
@@ -682,21 +575,25 @@ export const getAllBatches = async (filters: IBatchFilters = {}): Promise<{ data
 
 export const getBatchStats = async (): Promise<IBatchStats> => {
     try {
-        const totalBatches = await BatchModel.count();
-        const activeBatches = await BatchModel.count({ where: { isActive: true } });
-        const inactiveBatches = await BatchModel.count({ where: { isActive: false } });
+        const totalBatches = await BatchModel.model.countDocuments();
+        const activeBatches = await BatchModel.model.countDocuments({ isActive: true });
+        const inactiveBatches = await BatchModel.model.countDocuments({ isActive: false });
 
-        const batchesByYear = await BatchModel.groupBy({
-            by: ['year'],
-            _count: true,
-        });
+        const batchesByYear = await BatchModel.model.aggregate([
+            {
+                $group: {
+                    _id: '$year',
+                    count: { $sum: 1 },
+                },
+            },
+        ]);
 
         return {
             totalBatches,
             activeBatches,
             inactiveBatches,
             batchesByYear: batchesByYear.reduce((acc: Record<number, number>, item: any) => {
-                acc[item.year] = item._count;
+                acc[item._id] = item.count;
                 return acc;
             }, {}),
         };
@@ -709,26 +606,20 @@ export const getBatchStats = async (): Promise<IBatchStats> => {
 export const createSubject = async (data: ISubjectCreate): Promise<Subject> => {
     try {
         // Check if subject name already exists
-        const existingSubjectByName = await SubjectModel.findFirst({
-            where: { name: data.name },
-        });
+        const existingSubjectByName = await SubjectModel.model.findOne({ name: data.name });
 
         if (existingSubjectByName) {
             throw new AppError(StatusCodes.CONFLICT, 'Subject with this name already exists');
         }
 
         // Check if subject code already exists
-        const existingSubjectByCode = await SubjectModel.findFirst({
-            where: { code: data.code },
-        });
+        const existingSubjectByCode = await SubjectModel.model.findOne({ code: data.code });
 
         if (existingSubjectByCode) {
             throw new AppError(StatusCodes.CONFLICT, 'Subject with this code already exists');
         }
 
-        return await SubjectModel.create({
-            data,
-        }) as unknown as Subject;
+        return await SubjectModel.model.create(data);
     } catch (error) {
         throw error;
     }
@@ -736,29 +627,23 @@ export const createSubject = async (data: ISubjectCreate): Promise<Subject> => {
 
 export const getSubjectById = async (id: string): Promise<ISubjectWithRelations | null> => {
     try {
-        const subject = await SubjectModel.findUnique({
-            where: { id },
-            include: {
-                department: true,
-                courses: {
-                    include: {
-                        batch: true,
-                        subject: true,
-                    },
-                },
-                _count: {
-                    select: {
-                        courses: true,
-                    },
-                },
-            },
-        });
+        const subject = await SubjectModel.model.findById(id)
+            .populate('department')
+            .lean();
 
         if (!subject) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Subject not found');
         }
 
-        return subject as unknown as ISubjectWithRelations;
+        // Get course count
+        const courseCount = await CourseModel.model.countDocuments({ subjectId: id });
+
+        return {
+            ...subject,
+            _count: {
+                courses: courseCount,
+            },
+        } as unknown as ISubjectWithRelations;
     } catch (error) {
         throw error;
     }
@@ -767,9 +652,7 @@ export const getSubjectById = async (id: string): Promise<ISubjectWithRelations 
 export const updateSubject = async (id: string, data: ISubjectUpdate): Promise<Subject> => {
     try {
         // Check if subject exists
-        const existingSubject = await SubjectModel.findUnique({
-            where: { id },
-        });
+        const existingSubject = await SubjectModel.model.findById(id);
 
         if (!existingSubject) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Subject not found');
@@ -777,11 +660,9 @@ export const updateSubject = async (id: string, data: ISubjectUpdate): Promise<S
 
         // If updating name, check if it's already taken by another subject
         if (data.name) {
-            const existingSubjectByName = await SubjectModel.findFirst({
-                where: {
-                    name: data.name,
-                    id: { not: id },
-                },
+            const existingSubjectByName = await SubjectModel.model.findOne({
+                name: data.name,
+                _id: { $ne: id },
             });
 
             if (existingSubjectByName) {
@@ -791,11 +672,9 @@ export const updateSubject = async (id: string, data: ISubjectUpdate): Promise<S
 
         // If updating code, check if it's already taken by another subject
         if (data.code) {
-            const existingSubjectByCode = await SubjectModel.findFirst({
-                where: {
-                    code: data.code,
-                    id: { not: id },
-                },
+            const existingSubjectByCode = await SubjectModel.model.findOne({
+                code: data.code,
+                _id: { $ne: id },
             });
 
             if (existingSubjectByCode) {
@@ -803,10 +682,7 @@ export const updateSubject = async (id: string, data: ISubjectUpdate): Promise<S
             }
         }
 
-        return await SubjectModel.update({
-            where: { id },
-            data,
-        }) as unknown as Subject;
+        return await SubjectModel.model.findByIdAndUpdate(id, data, { new: true }) as unknown as Subject;
     } catch (error) {
         throw error;
     }
@@ -815,29 +691,20 @@ export const updateSubject = async (id: string, data: ISubjectUpdate): Promise<S
 export const deleteSubject = async (id: string): Promise<void> => {
     try {
         // Check if subject exists
-        const existingSubject = await SubjectModel.findUnique({
-            where: { id },
-        });
+        const existingSubject = await SubjectModel.model.findById(id);
 
         if (!existingSubject) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Subject not found');
         }
 
         // Check if subject has courses
-        const subjectWithCourses = await SubjectModel.findUnique({
-            where: { id },
-            include: {
-                courses: { take: 1 },
-            },
-        });
+        const courseCount = await CourseModel.model.countDocuments({ subjectId: id });
 
-        if (subjectWithCourses?.courses && subjectWithCourses.courses.length > 0) {
+        if (courseCount > 0) {
             throw new AppError(StatusCodes.CONFLICT, 'Cannot delete subject with associated courses');
         }
 
-        await SubjectModel.delete({
-            where: { id },
-        });
+        await SubjectModel.model.findByIdAndDelete(id);
     } catch (error) {
         throw error;
     }
@@ -847,37 +714,29 @@ export const getAllSubjects = async (filters: ISubjectFilters = {}): Promise<{ d
     try {
         const { departmentId, isActive, search, credits, page = 1, limit = 10 } = filters;
 
-        const where: any = {};
+        const query: any = {};
 
-        if (departmentId) where.departmentId = departmentId;
-        if (isActive !== undefined) where.isActive = isActive;
-        if (credits !== undefined) where.credits = credits;
+        if (departmentId) query.departmentId = departmentId;
+        if (isActive !== undefined) query.isActive = isActive;
+        if (credits !== undefined) query.credits = credits;
         if (search) {
-            where.OR = [
-                { name: { contains: search, mode: 'insensitive' } },
-                { code: { contains: search, mode: 'insensitive' } },
-                { description: { contains: search, mode: 'insensitive' } },
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { code: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } },
             ];
         }
 
         const skip = (page - 1) * limit;
 
         const [subjects, total] = await Promise.all([
-            SubjectModel.findMany({
-                where,
-                include: {
-                    department: true,
-                    _count: {
-                        select: {
-                            courses: true,
-                        },
-                    },
-                },
-                orderBy: { name: 'asc' },
-                skip,
-                take: limit,
-            }) as unknown as Subject[],
-            SubjectModel.count({ where }),
+            SubjectModel.model.find(query)
+                .populate('department')
+                .sort({ name: 1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            SubjectModel.model.countDocuments(query),
         ]);
 
         const meta = {
@@ -900,30 +759,38 @@ export const getAllSubjects = async (filters: ISubjectFilters = {}): Promise<{ d
 
 export const getSubjectStats = async (): Promise<ISubjectStats> => {
     try {
-        const totalSubjects = await SubjectModel.count();
-        const activeSubjects = await SubjectModel.count({ where: { isActive: true } });
-        const inactiveSubjects = await SubjectModel.count({ where: { isActive: false } });
+        const totalSubjects = await SubjectModel.model.countDocuments();
+        const activeSubjects = await SubjectModel.model.countDocuments({ isActive: true });
+        const inactiveSubjects = await SubjectModel.model.countDocuments({ isActive: false });
 
-        const subjectsByDepartment = await SubjectModel.groupBy({
-            by: ['departmentId'],
-            _count: true,
-        });
+        const subjectsByDepartment = await SubjectModel.model.aggregate([
+            {
+                $group: {
+                    _id: '$departmentId',
+                    count: { $sum: 1 },
+                },
+            },
+        ]);
 
-        const subjectsByCredits = await SubjectModel.groupBy({
-            by: ['credits'],
-            _count: true,
-        });
+        const subjectsByCredits = await SubjectModel.model.aggregate([
+            {
+                $group: {
+                    _id: '$credits',
+                    count: { $sum: 1 },
+                },
+            },
+        ]);
 
         return {
             totalSubjects,
             activeSubjects,
             inactiveSubjects,
             subjectsByDepartment: subjectsByDepartment.reduce((acc: Record<string, number>, item: any) => {
-                acc[item.departmentId] = item._count;
+                acc[item._id?.toString()] = item.count;
                 return acc;
             }, {}),
             subjectsByCredits: subjectsByCredits.reduce((acc: Record<number, number>, item: any) => {
-                acc[item.credits] = item._count;
+                acc[item._id] = item.count;
                 return acc;
             }, {}),
         };
@@ -941,14 +808,21 @@ export const getOrganizationOverview = async (): Promise<IOrganizationOverview> 
         const batchStats = await getBatchStats();
         const subjectStats = await getSubjectStats();
 
+        // Get total counts from student, teacher, and course models
+        const [totalStudents, totalTeachers, totalCourses] = await Promise.all([
+            StudentModel.model.countDocuments(),
+            TeacherModel.model.countDocuments(),
+            CourseModel.model.countDocuments(),
+        ]);
+
         return {
             departments: departmentStats,
             semesters: semesterStats,
             batches: batchStats,
             subjects: subjectStats,
-            totalStudents: 0, // Will be implemented when student module is integrated
-            totalTeachers: 0, // Will be implemented when teacher module is integrated
-            totalCourses: 0, // Will be implemented when course module is integrated
+            totalStudents,
+            totalTeachers,
+            totalCourses,
         };
     } catch (error) {
         throw error;

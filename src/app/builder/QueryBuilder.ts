@@ -1,21 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 /**
- * QueryBuilder class for Prisma
+ * QueryBuilder class for MongoDB/Mongoose
  * Builds complex queries with pagination, filtering, sorting, and field selection
  */
-class QueryBuilder<T> {
+class QueryBuilder {
   public query: Record<string, unknown>;
-  public whereConditions: any = {};
-  public selectFields: any = undefined;
-  public sortOptions: any = { createdAt: 'desc' };
-  public paginationOptions: { skip: number; take: number };
+  public filterConditions: any = {};
+  public projectFields: any = undefined;
+  public sortOptions: any = { createdAt: -1 };
+  public paginationOptions: { skip: number; limit: number };
 
   constructor(query: Record<string, unknown>) {
     this.query = query;
     this.paginationOptions = {
       skip: 0,
-      take: 10,
+      limit: 10,
     };
   }
 
@@ -26,11 +26,8 @@ class QueryBuilder<T> {
   search(searchableFields: string[]) {
     const searchTerm = this.query.searchTerm as string;
     if (searchTerm && searchableFields.length > 0) {
-      this.whereConditions.OR = searchableFields.map((field) => ({
-        [field]: {
-          contains: searchTerm,
-          mode: 'insensitive',
-        },
+      this.filterConditions.$or = searchableFields.map((field) => ({
+        [field]: { $regex: searchTerm, $options: 'i' },
       }));
     }
     return this;
@@ -41,12 +38,12 @@ class QueryBuilder<T> {
    */
   filter() {
     const queryObj = { ...this.query };
-    const excludeFields = ['searchTerm', 'sort', 'limit', 'page', 'fields', 'batchId', 'departmentId', 'semester', 'isActive', 'status'];
+    const excludeFields = ['searchTerm', 'sort', 'limit', 'page', 'fields'];
     excludeFields.forEach((field) => delete queryObj[field]);
 
     // Add remaining query params as filter conditions
     Object.keys(queryObj).forEach((key) => {
-      this.whereConditions[key] = queryObj[key];
+      this.filterConditions[key] = queryObj[key];
     });
 
     return this;
@@ -62,9 +59,9 @@ class QueryBuilder<T> {
 
       sortFields.forEach((field) => {
         if (field.startsWith('-')) {
-          this.sortOptions[field.substring(1)] = 'desc';
+          this.sortOptions[field.substring(1)] = -1;
         } else {
-          this.sortOptions[field] = 'asc';
+          this.sortOptions[field] = 1;
         }
       });
     }
@@ -81,23 +78,25 @@ class QueryBuilder<T> {
 
     this.paginationOptions = {
       skip,
-      take: limit,
+      limit,
     };
 
     return this;
   }
 
   /**
-   * Select specific fields
+   * Select specific fields (projection)
    */
   fields() {
     if (this.query.fields) {
       const fields = (this.query.fields as string).split(',');
-      this.selectFields = {};
+      this.projectFields = {};
 
       fields.forEach((field) => {
         if (!field.startsWith('-')) {
-          this.selectFields[field.trim()] = true;
+          this.projectFields[field.trim()] = 1;
+        } else {
+          this.projectFields[field.substring(1).trim()] = 0;
         }
       });
     }
@@ -105,15 +104,43 @@ class QueryBuilder<T> {
   }
 
   /**
-   * Get the Prisma query options object
+   * Get the Mongoose query filter object
+   */
+  getFilter() {
+    return Object.keys(this.filterConditions).length > 0 ? this.filterConditions : {};
+  }
+
+  /**
+   * Get the Mongoose sort options
+   */
+  getSort() {
+    return this.sortOptions;
+  }
+
+  /**
+   * Get pagination options
+   */
+  getPagination() {
+    return this.paginationOptions;
+  }
+
+  /**
+   * Get projection options
+   */
+  getProjection() {
+    return this.projectFields;
+  }
+
+  /**
+   * Get all query options combined
    */
   getQueryOptions() {
     return {
-      where: Object.keys(this.whereConditions).length > 0 ? this.whereConditions : undefined,
-      orderBy: this.sortOptions,
+      filter: this.getFilter(),
+      sort: this.getSort(),
       skip: this.paginationOptions.skip,
-      take: this.paginationOptions.take,
-      select: this.selectFields,
+      limit: this.paginationOptions.limit,
+      projection: this.projectFields,
     };
   }
 

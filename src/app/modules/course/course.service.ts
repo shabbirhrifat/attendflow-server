@@ -1,7 +1,7 @@
 import {
-    Course,
-    CourseEnrollment,
-    ClassSchedule,
+    ICourse,
+    ICourseEnrollment,
+    IClassSchedule,
     ICourseCreate,
     ICourseUpdate,
     ICourseFilters,
@@ -20,24 +20,21 @@ import {
 import { CourseModel, CourseEnrollmentModel, ClassScheduleModel } from './course.model';
 import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
-import prisma from '../../config/prisma';
+import { TeacherModel } from '../teacher/teacher.model';
+import { DepartmentModel, BatchModel, SubjectModel, SemesterModel } from '../organization/organization.model';
 
 // Course services
-export const createCourse = async (data: ICourseCreate): Promise<Course> => {
+export const createCourse = async (data: ICourseCreate): Promise<ICourse> => {
     try {
         // Check if course code already exists
-        const existingCourseByCode = await CourseModel.findFirst({
-            where: { code: data.code },
-        });
+        const existingCourseByCode = await CourseModel.model.findOne({ code: data.code });
 
         if (existingCourseByCode) {
             throw new AppError(StatusCodes.CONFLICT, 'Course with this code already exists');
         }
 
-        // Check if teacher exists (checking Teacher table since teacherId references Teacher.id)
-        const teacherExists = await prisma.teacher.findUnique({
-            where: { id: data.teacherId },
-        });
+        // Check if teacher exists
+        const teacherExists = await TeacherModel.model.findById(data.teacherId);
 
         if (!teacherExists) {
             throw new AppError(StatusCodes.BAD_REQUEST, 'Teacher not found');
@@ -45,9 +42,7 @@ export const createCourse = async (data: ICourseCreate): Promise<Course> => {
 
         // Check if batch exists
         if (data.batchId) {
-            const batchExists = await prisma.batch.findUnique({
-                where: { id: data.batchId },
-            });
+            const batchExists = await BatchModel.model.findById(data.batchId);
             console.log('Batch exists:', batchExists);
             if (!batchExists) {
                 throw new AppError(StatusCodes.BAD_REQUEST, 'Batch not found');
@@ -56,9 +51,7 @@ export const createCourse = async (data: ICourseCreate): Promise<Course> => {
 
         // Check if department exists
         if (data.departmentId) {
-            const departmentExists = await prisma.department.findUnique({
-                where: { id: data.departmentId },
-            });
+            const departmentExists = await DepartmentModel.model.findById(data.departmentId);
             if (!departmentExists) {
                 throw new AppError(StatusCodes.BAD_REQUEST, 'Department not found');
             }
@@ -66,9 +59,7 @@ export const createCourse = async (data: ICourseCreate): Promise<Course> => {
 
         // Check if subject exists
         if (data.subjectId) {
-            const subjectExists = await prisma.subject.findUnique({
-                where: { id: data.subjectId },
-            });
+            const subjectExists = await SubjectModel.model.findById(data.subjectId);
             if (!subjectExists) {
                 throw new AppError(StatusCodes.BAD_REQUEST, 'Subject not found');
             }
@@ -76,30 +67,18 @@ export const createCourse = async (data: ICourseCreate): Promise<Course> => {
 
         // Check if semester exists
         if (data.semesterId) {
-            const semesterExists = await prisma.semester.findUnique({
-                where: { id: data.semesterId },
-            });
+            const semesterExists = await SemesterModel.model.findById(data.semesterId);
             if (!semesterExists) {
                 throw new AppError(StatusCodes.BAD_REQUEST, 'Semester not found');
             }
         }
 
-        return await CourseModel.create({
-            data,
-            include: {
-                teacherProfile: {
-                    include: {
-                        user: {
-                            select: { id: true, name: true, email: true },
-                        },
-                        department: true,
-                    },
-                },
-                batch: true,
-                department: true,
-                subject: true,
-            },
-        }) as unknown as Course;
+        const course = await CourseModel.create(data);
+        return await CourseModel.findById(course.id)
+            .populate('teacherProfile')
+            .populate('batch')
+            .populate('department')
+            .populate('subject') as ICourse;
     } catch (error) {
         throw error;
     }
@@ -107,43 +86,27 @@ export const createCourse = async (data: ICourseCreate): Promise<Course> => {
 
 export const getCourseById = async (id: string): Promise<ICourseWithRelations | null> => {
     try {
-        const course = await CourseModel.findUnique({
-            where: { id },
-            include: {
-                teacherProfile: {
-                    include: {
-                        user: {
-                            select: { id: true, name: true, email: true },
-                        },
-                        department: true,
-                    },
-                },
-                batch: true,
-                department: true,
-                subject: true,
-                semesterInfo: true,
-                enrollments: {
-                    include: {
-                        student: {
-                            select: { id: true, name: true, email: true },
-                        },
-                    },
-                },
-                attendanceRecords: {
-                    select: { id: true, status: true, date: true },
-                    take: 10,
-                    orderBy: { date: 'desc' },
-                },
-                schedules: true,
-                _count: {
-                    select: {
-                        enrollments: true,
-                        attendanceRecords: true,
-                        schedules: true,
-                    },
-                },
-            },
-        });
+        const course = await CourseModel.findById(id)
+            .populate({
+                path: 'teacherProfile',
+                populate: {
+                    path: 'user',
+                    select: 'id name email'
+                }
+            })
+            .populate('teacherProfile')
+            .populate('batch')
+            .populate('department')
+            .populate('subject')
+            .populate('semesterInfo')
+            .populate({
+                path: 'enrollments',
+                populate: {
+                    path: 'student',
+                    select: 'id name email'
+                }
+            })
+            .exec();
 
         if (!course) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Course not found');
@@ -155,12 +118,10 @@ export const getCourseById = async (id: string): Promise<ICourseWithRelations | 
     }
 };
 
-export const updateCourse = async (id: string, data: ICourseUpdate): Promise<Course> => {
+export const updateCourse = async (id: string, data: ICourseUpdate): Promise<ICourse> => {
     try {
         // Check if course exists
-        const existingCourse = await CourseModel.findUnique({
-            where: { id },
-        });
+        const existingCourse = await CourseModel.findById(id);
 
         if (!existingCourse) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Course not found');
@@ -168,11 +129,9 @@ export const updateCourse = async (id: string, data: ICourseUpdate): Promise<Cou
 
         // If updating code, check if it's already taken by another course
         if (data.code) {
-            const existingCourseByCode = await CourseModel.findFirst({
-                where: {
-                    code: data.code,
-                    id: { not: id },
-                },
+            const existingCourseByCode = await CourseModel.model.findOne({
+                code: data.code,
+                _id: { $ne: id },
             });
 
             if (existingCourseByCode) {
@@ -180,23 +139,13 @@ export const updateCourse = async (id: string, data: ICourseUpdate): Promise<Cou
             }
         }
 
-        return await CourseModel.update({
-            where: { id },
-            data,
-            include: {
-                teacherProfile: {
-                    include: {
-                        user: {
-                            select: { id: true, name: true, email: true },
-                        },
-                        department: true,
-                    },
-                },
-                batch: true,
-                department: true,
-                subject: true,
-            },
-        }) as unknown as Course;
+        await CourseModel.update(id, data);
+
+        return await CourseModel.findById(id)
+            .populate('teacherProfile')
+            .populate('batch')
+            .populate('department')
+            .populate('subject') as ICourse;
     } catch (error) {
         throw error;
     }
@@ -205,45 +154,32 @@ export const updateCourse = async (id: string, data: ICourseUpdate): Promise<Cou
 export const deleteCourse = async (id: string): Promise<void> => {
     try {
         // Check if course exists
-        const existingCourse = await CourseModel.findUnique({
-            where: { id },
-        });
+        const existingCourse = await CourseModel.findById(id);
 
         if (!existingCourse) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Course not found');
         }
 
         // Check if course has enrollments, attendance records, or schedules
-        const courseWithRelations = await CourseModel.findUnique({
-            where: { id },
-            include: {
-                enrollments: { take: 1 },
-                attendanceRecords: { take: 1 },
-                schedules: { take: 1 },
-            },
-        });
+        const enrollmentCount = await CourseEnrollmentModel.model.countDocuments({ courseId: id });
 
-        if (courseWithRelations?.enrollments && courseWithRelations.enrollments.length > 0) {
+        if (enrollmentCount > 0) {
             throw new AppError(StatusCodes.CONFLICT, 'Cannot delete course with enrolled students');
         }
 
-        if (courseWithRelations?.attendanceRecords && courseWithRelations.attendanceRecords.length > 0) {
-            throw new AppError(StatusCodes.CONFLICT, 'Cannot delete course with attendance records');
-        }
+        const scheduleCount = await ClassScheduleModel.model.countDocuments({ courseId: id });
 
-        if (courseWithRelations?.schedules && courseWithRelations.schedules.length > 0) {
+        if (scheduleCount > 0) {
             throw new AppError(StatusCodes.CONFLICT, 'Cannot delete course with class schedules');
         }
 
-        await CourseModel.delete({
-            where: { id },
-        });
+        await CourseModel.delete(id);
     } catch (error) {
         throw error;
     }
 };
 
-export const getAllCourses = async (filters: ICourseFilters = {}): Promise<Course[]> => {
+export const getAllCourses = async (filters: ICourseFilters = {}): Promise<ICourse[]> => {
     try {
         const { departmentId, batchId, teacherId, subjectId, semesterId, isActive, search } = filters;
 
@@ -256,37 +192,25 @@ export const getAllCourses = async (filters: ICourseFilters = {}): Promise<Cours
         if (semesterId) where.semesterId = semesterId;
         if (isActive !== undefined) where.isActive = isActive;
         if (search) {
-            where.OR = [
-                { title: { contains: search, mode: 'insensitive' } },
-                { code: { contains: search, mode: 'insensitive' } },
-                { description: { contains: search, mode: 'insensitive' } },
+            where.$or = [
+                { title: { $regex: search, $options: 'i' } },
+                { code: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } },
             ];
         }
 
-        return await CourseModel.findMany({
-            where,
-            include: {
-                teacherProfile: {
-                    include: {
-                        user: {
-                            select: { id: true, name: true, email: true },
-                        },
-                        department: true,
-                    },
-                },
-                batch: true,
-                department: true,
-                subject: true,
-                _count: {
-                    select: {
-                        enrollments: true,
-                        attendanceRecords: true,
-                        schedules: true,
-                    },
-                },
-            },
-            orderBy: { title: 'asc' },
-        }) as unknown as Course[];
+        return await CourseModel.model.find(where)
+            .populate({
+                path: 'teacherProfile',
+                populate: {
+                    path: 'user',
+                    select: 'id name email'
+                }
+            })
+            .populate('batch')
+            .populate('department')
+            .populate('subject')
+            .sort({ title: 1 }) as ICourse[];
     } catch (error) {
         throw error;
     }
@@ -294,39 +218,36 @@ export const getAllCourses = async (filters: ICourseFilters = {}): Promise<Cours
 
 export const getCourseStats = async (): Promise<ICourseStats> => {
     try {
-        const totalCourses = await CourseModel.count();
-        const activeCourses = await CourseModel.count({ where: { isActive: true } });
-        const inactiveCourses = await CourseModel.count({ where: { isActive: false } });
+        const totalCourses = await CourseModel.model.countDocuments();
+        const activeCourses = await CourseModel.model.countDocuments({ isActive: true });
+        const inactiveCourses = await CourseModel.model.countDocuments({ isActive: false });
 
-        const coursesByDepartment = await CourseModel.groupBy({
-            by: ['departmentId'],
-            _count: true,
-        });
+        const coursesByDepartment = await CourseModel.model.aggregate([
+            { $group: { _id: '$departmentId', count: { $sum: 1 } } }
+        ]);
 
-        const coursesByBatch = await CourseModel.groupBy({
-            by: ['batchId'],
-            _count: true,
-        });
+        const coursesByBatch = await CourseModel.model.aggregate([
+            { $group: { _id: '$batchId', count: { $sum: 1 } } }
+        ]);
 
-        const coursesByTeacher = await CourseModel.groupBy({
-            by: ['teacherId'],
-            _count: true,
-        });
+        const coursesByTeacher = await CourseModel.model.aggregate([
+            { $group: { _id: '$teacherId', count: { $sum: 1 } } }
+        ]);
 
         return {
             totalCourses,
             activeCourses,
             inactiveCourses,
             coursesByDepartment: coursesByDepartment.reduce((acc: Record<string, number>, item: any) => {
-                acc[item.departmentId] = item._count;
+                acc[item._id] = item.count;
                 return acc;
             }, {}),
             coursesByBatch: coursesByBatch.reduce((acc: Record<string, number>, item: any) => {
-                acc[item.batchId] = item._count;
+                acc[item._id] = item.count;
                 return acc;
             }, {}),
             coursesByTeacher: coursesByTeacher.reduce((acc: Record<string, number>, item: any) => {
-                acc[item.teacherId] = item._count;
+                acc[item._id] = item.count;
                 return acc;
             }, {}),
         };
@@ -336,29 +257,22 @@ export const getCourseStats = async (): Promise<ICourseStats> => {
 };
 
 // Course Enrollment services
-export const enrollStudentInCourse = async (data: ICourseEnrollmentCreate): Promise<CourseEnrollment> => {
+export const enrollStudentInCourse = async (data: ICourseEnrollmentCreate): Promise<ICourseEnrollment> => {
     try {
         // Check if student is already enrolled in the course
-        const existingEnrollment = await CourseEnrollmentModel.findFirst({
-            where: {
-                studentId: data.studentId,
-                courseId: data.courseId,
-            },
+        const existingEnrollment = await CourseEnrollmentModel.model.findOne({
+            studentId: data.studentId,
+            courseId: data.courseId,
         });
 
         if (existingEnrollment) {
             throw new AppError(StatusCodes.CONFLICT, 'Student is already enrolled in this course');
         }
 
-        return await CourseEnrollmentModel.create({
-            data,
-            include: {
-                student: {
-                    select: { id: true, name: true, email: true },
-                },
-                course: true,
-            },
-        }) as unknown as CourseEnrollment;
+        const enrollment = await CourseEnrollmentModel.create(data);
+        return await CourseEnrollmentModel.findById(enrollment.id)
+            .populate('student', 'id name email')
+            .populate('course') as ICourseEnrollment;
     } catch (error) {
         throw error;
     }
@@ -366,31 +280,29 @@ export const enrollStudentInCourse = async (data: ICourseEnrollmentCreate): Prom
 
 export const getCourseEnrollmentById = async (id: string): Promise<ICourseEnrollmentWithRelations | null> => {
     try {
-        const enrollment = await CourseEnrollmentModel.findUnique({
-            where: { id },
-            include: {
-                student: {
-                    include: {
-                        studentProfile: true,
+        const enrollment = await CourseEnrollmentModel.findById(id)
+            .populate({
+                path: 'student',
+                populate: {
+                    path: 'studentProfile'
+                }
+            })
+            .populate({
+                path: 'course',
+                populate: [
+                    {
+                        path: 'teacherProfile',
+                        populate: {
+                            path: 'user',
+                            select: 'id name email'
+                        }
                     },
-                },
-                course: {
-                    include: {
-                        teacherProfile: {
-                            include: {
-                                user: {
-                                    select: { id: true, name: true, email: true },
-                                },
-                                department: true,
-                            },
-                        },
-                        batch: true,
-                        department: true,
-                        subject: true,
-                    },
-                },
-            },
-        });
+                    'batch',
+                    'department',
+                    'subject'
+                ]
+            })
+            .exec();
 
         if (!enrollment) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Course enrollment not found');
@@ -405,23 +317,19 @@ export const getCourseEnrollmentById = async (id: string): Promise<ICourseEnroll
 export const removeStudentFromCourse = async (id: string): Promise<void> => {
     try {
         // Check if enrollment exists
-        const existingEnrollment = await CourseEnrollmentModel.findUnique({
-            where: { id },
-        });
+        const existingEnrollment = await CourseEnrollmentModel.findById(id);
 
         if (!existingEnrollment) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Course enrollment not found');
         }
 
-        await CourseEnrollmentModel.delete({
-            where: { id },
-        });
+        await CourseEnrollmentModel.delete(id);
     } catch (error) {
         throw error;
     }
 };
 
-export const getAllCourseEnrollments = async (filters: ICourseEnrollmentFilters = {}): Promise<CourseEnrollment[]> => {
+export const getAllCourseEnrollments = async (filters: ICourseEnrollmentFilters = {}): Promise<ICourseEnrollment[]> => {
     try {
         const { studentId, courseId } = filters;
 
@@ -430,18 +338,10 @@ export const getAllCourseEnrollments = async (filters: ICourseEnrollmentFilters 
         if (studentId) where.studentId = studentId;
         if (courseId) where.courseId = courseId;
 
-        return await CourseEnrollmentModel.findMany({
-            where,
-            include: {
-                student: {
-                    select: { id: true, name: true, email: true },
-                },
-                course: {
-                    select: { id: true, title: true, code: true },
-                },
-            },
-            orderBy: { enrolledAt: 'desc' },
-        }) as unknown as CourseEnrollment[];
+        return await CourseEnrollmentModel.model.find(where)
+            .populate('student', 'id name email')
+            .populate('course', 'id title code')
+            .sort({ enrolledAt: -1 }) as ICourseEnrollment[];
     } catch (error) {
         throw error;
     }
@@ -449,26 +349,24 @@ export const getAllCourseEnrollments = async (filters: ICourseEnrollmentFilters 
 
 export const getCourseEnrollmentStats = async (): Promise<ICourseEnrollmentStats> => {
     try {
-        const totalEnrollments = await CourseEnrollmentModel.count();
+        const totalEnrollments = await CourseEnrollmentModel.model.countDocuments();
 
-        const enrollmentsByCourse = await CourseEnrollmentModel.groupBy({
-            by: ['courseId'],
-            _count: true,
-        });
+        const enrollmentsByCourse = await CourseEnrollmentModel.model.aggregate([
+            { $group: { _id: '$courseId', count: { $sum: 1 } } }
+        ]);
 
-        const enrollmentsByStudent = await CourseEnrollmentModel.groupBy({
-            by: ['studentId'],
-            _count: true,
-        });
+        const enrollmentsByStudent = await CourseEnrollmentModel.model.aggregate([
+            { $group: { _id: '$studentId', count: { $sum: 1 } } }
+        ]);
 
         return {
             totalEnrollments,
             enrollmentsByCourse: enrollmentsByCourse.reduce((acc: Record<string, number>, item: any) => {
-                acc[item.courseId] = item._count;
+                acc[item._id] = item.count;
                 return acc;
             }, {}),
             enrollmentsByStudent: enrollmentsByStudent.reduce((acc: Record<string, number>, item: any) => {
-                acc[item.studentId] = item._count;
+                acc[item._id] = item.count;
                 return acc;
             }, {}),
         };
@@ -478,18 +376,13 @@ export const getCourseEnrollmentStats = async (): Promise<ICourseEnrollmentStats
 };
 
 // Class Schedule services
-export const createClassSchedule = async (data: IClassScheduleCreate): Promise<ClassSchedule> => {
+export const createClassSchedule = async (data: IClassScheduleCreate): Promise<IClassSchedule> => {
     try {
-        return await ClassScheduleModel.create({
-            data,
-            include: {
-                teacher: {
-                    select: { id: true, name: true, email: true },
-                },
-                course: true,
-                batch: true,
-            },
-        }) as unknown as ClassSchedule;
+        const schedule = await ClassScheduleModel.create(data);
+        return await ClassScheduleModel.findById(schedule.id)
+            .populate('teacher', 'id name email')
+            .populate('course')
+            .populate('batch') as IClassSchedule;
     } catch (error) {
         throw error;
     }
@@ -497,22 +390,14 @@ export const createClassSchedule = async (data: IClassScheduleCreate): Promise<C
 
 export const getClassScheduleById = async (id: string): Promise<IClassScheduleWithRelations | null> => {
     try {
-        const schedule = await ClassScheduleModel.findUnique({
-            where: { id },
-            include: {
-                teacher: {
-                    select: { id: true, name: true, email: true },
-                },
-                course: {
-                    include: {
-                        batch: true,
-                        department: true,
-                        subject: true,
-                    },
-                },
-                batch: true,
-            },
-        });
+        const schedule = await ClassScheduleModel.findById(id)
+            .populate('teacher', 'id name email')
+            .populate({
+                path: 'course',
+                populate: ['batch', 'department', 'subject']
+            })
+            .populate('batch')
+            .exec();
 
         if (!schedule) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Class schedule not found');
@@ -524,28 +409,21 @@ export const getClassScheduleById = async (id: string): Promise<IClassScheduleWi
     }
 };
 
-export const updateClassSchedule = async (id: string, data: IClassScheduleUpdate): Promise<ClassSchedule> => {
+export const updateClassSchedule = async (id: string, data: IClassScheduleUpdate): Promise<IClassSchedule> => {
     try {
         // Check if schedule exists
-        const existingSchedule = await ClassScheduleModel.findUnique({
-            where: { id },
-        });
+        const existingSchedule = await ClassScheduleModel.findById(id);
 
         if (!existingSchedule) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Class schedule not found');
         }
 
-        return await ClassScheduleModel.update({
-            where: { id },
-            data,
-            include: {
-                teacher: {
-                    select: { id: true, name: true, email: true },
-                },
-                course: true,
-                batch: true,
-            },
-        }) as unknown as ClassSchedule;
+        await ClassScheduleModel.update(id, data);
+
+        return await ClassScheduleModel.findById(id)
+            .populate('teacher', 'id name email')
+            .populate('course')
+            .populate('batch') as IClassSchedule;
     } catch (error) {
         throw error;
     }
@@ -554,23 +432,19 @@ export const updateClassSchedule = async (id: string, data: IClassScheduleUpdate
 export const deleteClassSchedule = async (id: string): Promise<void> => {
     try {
         // Check if schedule exists
-        const existingSchedule = await ClassScheduleModel.findUnique({
-            where: { id },
-        });
+        const existingSchedule = await ClassScheduleModel.findById(id);
 
         if (!existingSchedule) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Class schedule not found');
         }
 
-        await ClassScheduleModel.delete({
-            where: { id },
-        });
+        await ClassScheduleModel.delete(id);
     } catch (error) {
         throw error;
     }
 };
 
-export const getAllClassSchedules = async (filters: IClassScheduleFilters = {}): Promise<ClassSchedule[]> => {
+export const getAllClassSchedules = async (filters: IClassScheduleFilters = {}): Promise<IClassSchedule[]> => {
     try {
         const { teacherId, courseId, batchId, dayOfWeek, semester, isActive } = filters;
 
@@ -583,24 +457,11 @@ export const getAllClassSchedules = async (filters: IClassScheduleFilters = {}):
         if (semester) where.semester = semester;
         if (isActive !== undefined) where.isActive = isActive;
 
-        return await ClassScheduleModel.findMany({
-            where,
-            include: {
-                teacher: {
-                    select: { id: true, name: true, email: true },
-                },
-                course: {
-                    select: { id: true, title: true, code: true },
-                },
-                batch: {
-                    select: { id: true, name: true },
-                },
-            },
-            orderBy: [
-                { dayOfWeek: 'asc' },
-                { startTime: 'asc' },
-            ],
-        }) as unknown as ClassSchedule[];
+        return await ClassScheduleModel.model.find(where)
+            .populate('teacher', 'id name email')
+            .populate('course', 'id title code')
+            .populate('batch', 'id name')
+            .sort({ dayOfWeek: 1, startTime: 1 }) as IClassSchedule[];
     } catch (error) {
         throw error;
     }
@@ -608,30 +469,28 @@ export const getAllClassSchedules = async (filters: IClassScheduleFilters = {}):
 
 export const getClassScheduleStats = async (): Promise<IClassScheduleStats> => {
     try {
-        const totalSchedules = await ClassScheduleModel.count();
-        const activeSchedules = await ClassScheduleModel.count({ where: { isActive: true } });
-        const inactiveSchedules = await ClassScheduleModel.count({ where: { isActive: false } });
+        const totalSchedules = await ClassScheduleModel.model.countDocuments();
+        const activeSchedules = await ClassScheduleModel.model.countDocuments({ isActive: true });
+        const inactiveSchedules = await ClassScheduleModel.model.countDocuments({ isActive: false });
 
-        const schedulesByDay = await ClassScheduleModel.groupBy({
-            by: ['dayOfWeek'],
-            _count: true,
-        });
+        const schedulesByDay = await ClassScheduleModel.model.aggregate([
+            { $group: { _id: '$dayOfWeek', count: { $sum: 1 } } }
+        ]);
 
-        const schedulesByTeacher = await ClassScheduleModel.groupBy({
-            by: ['teacherId'],
-            _count: true,
-        });
+        const schedulesByTeacher = await ClassScheduleModel.model.aggregate([
+            { $group: { _id: '$teacherId', count: { $sum: 1 } } }
+        ]);
 
         return {
             totalSchedules,
             activeSchedules,
             inactiveSchedules,
             schedulesByDay: schedulesByDay.reduce((acc: Record<number, number>, item: any) => {
-                acc[item.dayOfWeek] = item._count;
+                acc[item._id] = item.count;
                 return acc;
             }, {}),
             schedulesByTeacher: schedulesByTeacher.reduce((acc: Record<string, number>, item: any) => {
-                acc[item.teacherId] = item._count;
+                acc[item._id] = item.count;
                 return acc;
             }, {}),
         };

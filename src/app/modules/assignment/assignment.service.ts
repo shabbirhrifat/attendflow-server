@@ -1,11 +1,10 @@
 /**
  * Assignment Module - Service Layer
- * 
+ *
  * Handles the business logic for assigning relationships between entities
  * INDUSTRY STANDARD: Core entities are created independently, relationships assigned later
  */
 
-import prisma from '../../config/prisma';
 import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
 import {
@@ -19,6 +18,11 @@ import {
     IAssignDepartmentHead,
     IAssignmentResponse
 } from './assignment.interface';
+import { TeacherModel } from '../teacher/teacher.model';
+import { StudentModel } from '../student/student.model';
+import { DepartmentModel, BatchModel } from '../organization/organization.model';
+import { CourseModel, CourseEnrollmentModel } from '../course/course.model';
+import UserModel from '../user/user.model';
 
 // ==================== TEACHER ASSIGNMENTS ====================
 
@@ -30,36 +34,36 @@ export const assignTeacherToDepartment = async (
     data: IAssignTeacherToDepartment
 ): Promise<IAssignmentResponse> => {
     // Validate teacher exists
-    const teacher = await prisma.teacher.findUnique({
-        where: { id: data.teacherId },
-        include: { user: true },
-    });
+    const teacher = await TeacherModel.model.findById(data.teacherId);
 
     if (!teacher) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Teacher not found');
     }
 
     // Validate department exists
-    const department = await prisma.department.findUnique({
-        where: { id: data.departmentId },
-    });
+    const department = await DepartmentModel.model.findById(data.departmentId);
 
     if (!department) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
     }
 
     // Update teacher with department
-    const updatedTeacher = await prisma.teacher.update({
-        where: { id: data.teacherId },
-        data: { departmentId: data.departmentId },
-        include: { user: true, department: true },
-    });
+    const updatedTeacher = await TeacherModel.model.findByIdAndUpdate(
+        data.teacherId,
+        { departmentId: data.departmentId },
+        { new: true }
+    );
+
+    if (!updatedTeacher) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Failed to update teacher');
+    }
 
     // Also update user's departmentId for consistency
-    await prisma.user.update({
-        where: { id: teacher.userId },
-        data: { departmentId: data.departmentId },
-    });
+    const teacherObj = teacher.toObject ? teacher.toObject() : teacher;
+    await UserModel.model.findByIdAndUpdate(
+        teacherObj.userId,
+        { departmentId: data.departmentId }
+    );
 
     return {
         success: true,
@@ -74,25 +78,28 @@ export const assignTeacherToDepartment = async (
 export const unassignTeacherFromDepartment = async (
     teacherId: string
 ): Promise<IAssignmentResponse> => {
-    const teacher = await prisma.teacher.findUnique({
-        where: { id: teacherId },
-    });
+    const teacher = await TeacherModel.findById(teacherId);
 
     if (!teacher) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Teacher not found');
     }
 
-    const updatedTeacher = await prisma.teacher.update({
-        where: { id: teacherId },
-        data: { departmentId: null },
-        include: { user: true },
-    });
+    const updatedTeacher = await TeacherModel.model.findByIdAndUpdate(
+        teacherId,
+        { departmentId: null },
+        { new: true }
+    );
+
+    if (!updatedTeacher) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Failed to update teacher');
+    }
 
     // Also update user's departmentId
-    await prisma.user.update({
-        where: { id: teacher.userId },
-        data: { departmentId: null },
-    });
+    const teacherObj = teacher.toObject ? teacher.toObject() : teacher;
+    await UserModel.model.findByIdAndUpdate(
+        teacherObj.userId,
+        { departmentId: null }
+    );
 
     return {
         success: true,
@@ -110,29 +117,29 @@ export const assignStudentToBatch = async (
     data: IAssignStudentToBatch
 ): Promise<IAssignmentResponse> => {
     // Validate student exists
-    const student = await prisma.student.findUnique({
-        where: { id: data.studentId },
-    });
+    const student = await StudentModel.findById(data.studentId);
 
     if (!student) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
     }
 
     // Validate batch exists
-    const batch = await prisma.batch.findUnique({
-        where: { id: data.batchId },
-    });
+    const batch = await BatchModel.model.findById(data.batchId);
 
     if (!batch) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Batch not found');
     }
 
     // Update student with batch
-    const updatedStudent = await prisma.student.update({
-        where: { id: data.studentId },
-        data: { batchId: data.batchId },
-        include: { user: true, batch: true, department: true },
-    });
+    const updatedStudent = await StudentModel.model.findByIdAndUpdate(
+        data.studentId,
+        { batchId: data.batchId },
+        { new: true }
+    );
+
+    if (!updatedStudent) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Failed to update student');
+    }
 
     return {
         success: true,
@@ -148,35 +155,36 @@ export const assignStudentToDepartment = async (
     data: IAssignStudentToDepartment
 ): Promise<IAssignmentResponse> => {
     // Validate student exists
-    const student = await prisma.student.findUnique({
-        where: { id: data.studentId },
-    });
+    const student = await StudentModel.findById(data.studentId);
 
     if (!student) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
     }
 
     // Validate department exists
-    const department = await prisma.department.findUnique({
-        where: { id: data.departmentId },
-    });
+    const department = await DepartmentModel.model.findById(data.departmentId);
 
     if (!department) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
     }
 
     // Update student with department
-    const updatedStudent = await prisma.student.update({
-        where: { id: data.studentId },
-        data: { departmentId: data.departmentId },
-        include: { user: true, batch: true, department: true },
-    });
+    const updatedStudent = await StudentModel.model.findByIdAndUpdate(
+        data.studentId,
+        { departmentId: data.departmentId },
+        { new: true }
+    );
+
+    if (!updatedStudent) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Failed to update student');
+    }
 
     // Also update user's departmentId for consistency
-    await prisma.user.update({
-        where: { id: student.userId },
-        data: { departmentId: data.departmentId },
-    });
+    const studentObj = student.toObject ? student.toObject() : student;
+    await UserModel.model.findByIdAndUpdate(
+        studentObj.userId,
+        { departmentId: data.departmentId }
+    );
 
     return {
         success: true,
@@ -194,34 +202,30 @@ export const assignTeacherToCourse = async (
     data: IAssignTeacherToCourse
 ): Promise<IAssignmentResponse> => {
     // Validate teacher exists
-    const teacher = await prisma.teacher.findUnique({
-        where: { id: data.teacherId },
-        include: { user: true },
-    });
+    const teacher = await TeacherModel.model.findById(data.teacherId);
 
     if (!teacher) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Teacher not found');
     }
 
     // Validate course exists
-    const course = await prisma.course.findUnique({
-        where: { id: data.courseId },
-    });
+    const course = await CourseModel.findById(data.courseId);
 
     if (!course) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Course not found');
     }
 
-    // Update course with teacher
-    const updatedCourse = await prisma.course.update({
-        where: { id: data.courseId },
-        data: { teacherId: teacher.userId }, // Use userId for course.teacherId
-        include: {
-            teacherProfile: true,
-            batch: true,
-            department: true,
-        },
-    });
+    // Update course with teacher (using userId)
+    const teacherObj = teacher.toObject ? teacher.toObject() : teacher;
+    const updatedCourse = await CourseModel.model.findByIdAndUpdate(
+        data.courseId,
+        { teacherId: teacherObj.userId },
+        { new: true }
+    );
+
+    if (!updatedCourse) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Failed to update course');
+    }
 
     return {
         success: true,
@@ -237,33 +241,29 @@ export const assignCourseToDepartment = async (
     data: IAssignCourseToDepartment
 ): Promise<IAssignmentResponse> => {
     // Validate course exists
-    const course = await prisma.course.findUnique({
-        where: { id: data.courseId },
-    });
+    const course = await CourseModel.findById(data.courseId);
 
     if (!course) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Course not found');
     }
 
     // Validate department exists
-    const department = await prisma.department.findUnique({
-        where: { id: data.departmentId },
-    });
+    const department = await DepartmentModel.model.findById(data.departmentId);
 
     if (!department) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
     }
 
     // Update course with department
-    const updatedCourse = await prisma.course.update({
-        where: { id: data.courseId },
-        data: { departmentId: data.departmentId },
-        include: {
-            teacherProfile: true,
-            batch: true,
-            department: true,
-        },
-    });
+    const updatedCourse = await CourseModel.model.findByIdAndUpdate(
+        data.courseId,
+        { departmentId: data.departmentId },
+        { new: true }
+    );
+
+    if (!updatedCourse) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Failed to update course');
+    }
 
     return {
         success: true,
@@ -279,33 +279,29 @@ export const assignCourseToBatch = async (
     data: IAssignCourseToBatch
 ): Promise<IAssignmentResponse> => {
     // Validate course exists
-    const course = await prisma.course.findUnique({
-        where: { id: data.courseId },
-    });
+    const course = await CourseModel.findById(data.courseId);
 
     if (!course) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Course not found');
     }
 
     // Validate batch exists
-    const batch = await prisma.batch.findUnique({
-        where: { id: data.batchId },
-    });
+    const batch = await BatchModel.model.findById(data.batchId);
 
     if (!batch) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Batch not found');
     }
 
     // Update course with batch
-    const updatedCourse = await prisma.course.update({
-        where: { id: data.courseId },
-        data: { batchId: data.batchId },
-        include: {
-            teacherProfile: true,
-            batch: true,
-            department: true,
-        },
-    });
+    const updatedCourse = await CourseModel.model.findByIdAndUpdate(
+        data.courseId,
+        { batchId: data.batchId },
+        { new: true }
+    );
+
+    if (!updatedCourse) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Failed to update course');
+    }
 
     return {
         success: true,
@@ -321,32 +317,24 @@ export const assignStudentToCourse = async (
     data: IAssignStudentToCourse
 ): Promise<IAssignmentResponse> => {
     // Validate student exists
-    const student = await prisma.student.findUnique({
-        where: { id: data.studentId },
-        include: { user: true },
-    });
+    const student = await StudentModel.model.findById(data.studentId);
 
     if (!student) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
     }
 
     // Validate course exists
-    const course = await prisma.course.findUnique({
-        where: { id: data.courseId },
-    });
+    const course = await CourseModel.findById(data.courseId);
 
     if (!course) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Course not found');
     }
 
     // Check if enrollment already exists
-    const existingEnrollment = await prisma.courseEnrollment.findUnique({
-        where: {
-            studentId_courseId: {
-                studentId: student.userId,
-                courseId: data.courseId,
-            },
-        },
+    const studentObj = student.toObject ? student.toObject() : student;
+    const existingEnrollment = await CourseEnrollmentModel.model.findOne({
+        studentId: studentObj.userId,
+        courseId: data.courseId,
     });
 
     if (existingEnrollment) {
@@ -354,15 +342,9 @@ export const assignStudentToCourse = async (
     }
 
     // Create enrollment
-    const enrollment = await prisma.courseEnrollment.create({
-        data: {
-            studentId: student.userId, // Use userId for enrollment
-            courseId: data.courseId,
-        },
-        include: {
-            student: true,
-            course: true,
-        },
+    const enrollment = await CourseEnrollmentModel.create({
+        studentId: studentObj.userId,
+        courseId: data.courseId,
     });
 
     return {
@@ -380,22 +362,17 @@ export const unenrollStudentFromCourse = async (
     courseId: string
 ): Promise<IAssignmentResponse> => {
     // Validate student exists
-    const student = await prisma.student.findUnique({
-        where: { id: studentId },
-    });
+    const student = await StudentModel.model.findById(studentId);
 
     if (!student) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
     }
 
     // Delete enrollment
-    await prisma.courseEnrollment.delete({
-        where: {
-            studentId_courseId: {
-                studentId: student.userId,
-                courseId: courseId,
-            },
-        },
+    const studentObj = student.toObject ? student.toObject() : student;
+    await CourseEnrollmentModel.model.deleteOne({
+        studentId: studentObj.userId,
+        courseId: courseId,
     });
 
     return {
@@ -413,29 +390,30 @@ export const assignDepartmentHead = async (
     data: IAssignDepartmentHead
 ): Promise<IAssignmentResponse> => {
     // Validate department exists
-    const department = await prisma.department.findUnique({
-        where: { id: data.departmentId },
-    });
+    const department = await DepartmentModel.model.findById(data.departmentId);
 
     if (!department) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
     }
 
     // Validate teacher exists
-    const teacher = await prisma.teacher.findUnique({
-        where: { id: data.teacherId },
-        include: { user: true },
-    });
+    const teacher = await TeacherModel.model.findById(data.teacherId);
 
     if (!teacher) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Teacher not found');
     }
 
-    // Update department with head
-    const updatedDepartment = await prisma.department.update({
-        where: { id: data.departmentId },
-        data: { headId: teacher.userId }, // Use userId for headId
-    });
+    // Update department with head (using userId)
+    const teacherObj = teacher.toObject ? teacher.toObject() : teacher;
+    const updatedDepartment = await DepartmentModel.model.findByIdAndUpdate(
+        data.departmentId,
+        { headId: teacherObj.userId },
+        { new: true }
+    );
+
+    if (!updatedDepartment) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Failed to update department');
+    }
 
     return {
         success: true,

@@ -9,7 +9,7 @@ import bcrypt from 'bcrypt';
 import config from '../../config';
 import generateToken from '../../utils/generateToken';
 import { hashInfo } from '../../utils/hashInfo';
-import prisma from '../../config/prisma';
+import { RefreshTokenModel } from '../auth/auth.model';
 
 interface RegisterAdminData {
     email: string;
@@ -28,9 +28,7 @@ const loginAdmin = catchAsync(async (req: Request, res: Response) => {
     const { email, password } = req.body;
 
     // Find user by email
-    const user = await UserModel.findUnique({
-        where: { email },
-    });
+    const user = await UserModel.findByEmail(email);
 
     if (!user) {
         throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
@@ -87,17 +85,17 @@ const registerAdmin = catchAsync(async (req: Request, res: Response) => {
     const adminData: RegisterAdminData = req.body;
 
     // Check if user already exists
-    const existingUser = await UserModel.findFirst({
-        where: {
-            OR: [
-                { email: adminData.email },
-                ...(adminData.username ? [{ username: adminData.username }] : []),
-            ],
-        },
-    });
+    const existingUser = await UserModel.findByEmail(adminData.email);
+    if (adminData.username && existingUser) {
+        // Also check username if provided
+        const existingByUsername = await UserModel.findByUsername(adminData.username);
+        if (existingByUsername || existingUser) {
+            throw new AppError(StatusCodes.CONFLICT, 'User with this email or username already exists');
+        }
+    }
 
     if (existingUser) {
-        throw new AppError(StatusCodes.CONFLICT, 'User with this email or username already exists');
+        throw new AppError(StatusCodes.CONFLICT, 'User with this email already exists');
     }
 
     // Only allow ADMIN and TEACHER roles through this route
@@ -110,33 +108,30 @@ const registerAdmin = catchAsync(async (req: Request, res: Response) => {
 
     // Create user
     const user = await UserModel.create({
-        data: {
-            email: adminData.email,
-            username: adminData.username,
-            name: adminData.name,
-            password: hashedPassword,
-            role: adminData.role,
-            phone: adminData.phone,
-            departmentId: adminData.departmentId,
-        },
+        email: adminData.email,
+        username: adminData.username,
+        name: adminData.name,
+        password: hashedPassword,
+        role: adminData.role,
+        phone: adminData.phone,
+        departmentId: adminData.departmentId,
     });
 
     // Create teacher profile if role is TEACHER
     if (adminData.role === 'TEACHER') {
-        await prisma.teacher.create({
-            data: {
-                userId: user.id,
-                employeeId: adminData.employeeId || `EMP${Date.now()}`,
-                designation: adminData.designation,
-                specialization: adminData.specialization,
-                departmentId: adminData.departmentId,
-            },
+        const { TeacherModel } = await import('../teacher/teacher.model');
+        await TeacherModel.model.create({
+            userId: user._id.toString(),
+            employeeId: adminData.employeeId || `EMP${Date.now()}`,
+            designation: adminData.designation,
+            specialization: adminData.specialization,
+            departmentId: adminData.departmentId,
         });
     }
 
     // Generate tokens
     const jwtPayload = {
-        id: user.id,
+        id: user._id.toString(),
         role: user.role,
     };
 
@@ -156,12 +151,10 @@ const registerAdmin = catchAsync(async (req: Request, res: Response) => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
 
-    await prisma.refreshToken.create({
-        data: {
-            token: refreshToken,
-            userId: user.id,
-            expiresAt,
-        },
+    await RefreshTokenModel.model.create({
+        token: refreshToken,
+        userId: user.id,
+        expiresAt,
     });
 
     // Remove password from response

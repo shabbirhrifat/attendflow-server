@@ -5,6 +5,8 @@
  */
 
 export * from './session.interface';
-export * from './session.service';
 export * from './session.controller';
 export * from './session.validation';
+
+// Export service with explicit name to avoid conflicts
+export { SessionService } from './session.service';

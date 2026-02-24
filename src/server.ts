@@ -1,13 +1,13 @@
 import 'dotenv/config';
 import app from './app';
 import config from './app/config';
-import prisma from './app/config/prisma';
+import mongooseConnection from './app/config/mongoose';
 
 const main = async () => {
-  
+
   try {
     // Test database connection
-    await prisma.$connect();
+    await mongooseConnection.asPromise();
     console.log('Connected To Database Successfully');
 
     app.listen(config.port, () => {
@@ -21,12 +21,14 @@ const main = async () => {
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
-  await prisma.$disconnect();
+  await mongooseConnection.close();
+  console.log('MongoDB connection closed through app termination');
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-  await prisma.$disconnect();
+  await mongooseConnection.close();
+  console.log('MongoDB connection closed through app termination');
   process.exit(0);
 });
 

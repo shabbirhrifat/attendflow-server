@@ -6,7 +6,16 @@ import { StatusCodes } from "http-status-codes";
 
 const validateImport = catchAsync(async (req: Request, res: Response) => {
     const { type } = req.body;
-    const file = req.file; // Assuming multer or similar is used
+    const file = req.file as Express.Multer.File | undefined; // Type assertion for multer file
+
+    if (!file) {
+        return sendResponse(res, {
+            statusCode: StatusCodes.BAD_REQUEST,
+            message: "No file uploaded",
+            data: null
+        });
+    }
+
     const result = await ImportService.validateFile(type, file);
     sendResponse(res, {
         statusCode: StatusCodes.OK,

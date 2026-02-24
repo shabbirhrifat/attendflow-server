@@ -1,4 +1,5 @@
-import prisma from '../../config/prisma';
+import { AttendanceSession } from './attendance.schema';
+import BaseRepository from '../../repositories/BaseRepository';
 import {
     IAttendanceSession,
     IAttendanceSessionCreate,
@@ -6,52 +7,42 @@ import {
     IAttendanceSessionFilters,
 } from './attendance.interface';
 
-// Attendance Session model operations
-export const AttendanceSessionModel = {
+// Attendance Session repository using Mongoose
+class AttendanceSessionRepository extends BaseRepository<any> {
+    constructor() {
+        super(AttendanceSession);
+    }
+
     // Create a new attendance session
-    create: async (data: IAttendanceSessionCreate): Promise<IAttendanceSession> => {
-        const result = await prisma.attendanceSession.create({
-            data: {
-                courseId: data.courseId,
-                teacherId: data.teacherId,
-                date: data.date || data.startTime,
-                startTime: data.startTime,
-                location: data.location,
-                notes: data.notes,
-                isActive: true,
-            },
-            include: {
-                course: {
-                    select: { id: true, title: true, code: true },
-                },
-                teacher: {
-                    select: { id: true, name: true, email: true },
-                },
-            },
+    async create(data: IAttendanceSessionCreate): Promise<IAttendanceSession> {
+        const result = await this.model.create({
+            courseId: data.courseId,
+            teacherId: data.teacherId,
+            date: data.date || data.startTime,
+            startTime: data.startTime,
+            location: data.location,
+            notes: data.notes,
+            isActive: true,
         });
 
-        return result as unknown as IAttendanceSession;
-    },
+        const populated = await this.model.findById(result._id)
+            .populate('course', 'id title code')
+            .populate('teacher', 'id name email');
+
+        return populated as unknown as IAttendanceSession;
+    }
 
     // Find attendance session by ID
-    findById: async (id: string): Promise<IAttendanceSession | null> => {
-        const result = await prisma.attendanceSession.findUnique({
-            where: { id },
-            include: {
-                course: {
-                    select: { id: true, title: true, code: true },
-                },
-                teacher: {
-                    select: { id: true, name: true, email: true },
-                },
-            },
-        });
+    async findById(id: string): Promise<IAttendanceSession | null> {
+        const result = await this.model.findById(id)
+            .populate('course', 'id title code')
+            .populate('teacher', 'id name email');
 
         return result as unknown as IAttendanceSession | null;
-    },
+    }
 
     // Get attendance sessions with filters
-    findMany: async (filters: IAttendanceSessionFilters) => {
+    async findMany(filters: IAttendanceSessionFilters) {
         const {
             courseId,
             teacherId,
@@ -71,28 +62,22 @@ export const AttendanceSessionModel = {
         if (isActive !== undefined) where.isActive = isActive;
         if (startDate || endDate) {
             where.createdAt = {};
-            if (startDate) where.createdAt.gte = new Date(startDate);
-            if (endDate) where.createdAt.lte = new Date(endDate);
+            if (startDate) where.createdAt.$gte = new Date(startDate);
+            if (endDate) where.createdAt.$lte = new Date(endDate);
         }
 
         const skip = (page - 1) * limit;
+        const sort: any = {};
+        sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
         const [sessions, total] = await Promise.all([
-            prisma.attendanceSession.findMany({
-                where,
-                include: {
-                    course: {
-                        select: { id: true, title: true, code: true },
-                    },
-                    teacher: {
-                        select: { id: true, name: true, email: true },
-                    },
-                },
-                orderBy: { [sortBy]: sortOrder },
-                skip,
-                take: limit,
-            }),
-            prisma.attendanceSession.count({ where }),
+            this.model.find(where)
+                .populate('course', 'id title code')
+                .populate('teacher', 'id name email')
+                .sort(sort)
+                .skip(skip)
+                .limit(limit),
+            this.model.countDocuments(where),
         ]);
 
         return {
@@ -104,64 +89,46 @@ export const AttendanceSessionModel = {
                 totalPages: Math.ceil(total / limit),
             },
         };
-    },
+    }
 
     // Update attendance session
-    update: async (id: string, data: Partial<IAttendanceSessionUpdate>): Promise<IAttendanceSession> => {
-        const result = await prisma.attendanceSession.update({
-            where: { id },
-            data: data as any,
-            include: {
-                course: {
-                    select: { id: true, title: true, code: true },
-                },
-                teacher: {
-                    select: { id: true, name: true, email: true },
-                },
-            },
-        });
+    async update(id: string, data: Partial<IAttendanceSessionUpdate>): Promise<IAttendanceSession> {
+        await this.model.findByIdAndUpdate(id, data);
+
+        const result = await this.model.findById(id)
+            .populate('course', 'id title code')
+            .populate('teacher', 'id name email');
 
         return result as unknown as IAttendanceSession;
-    },
+    }
 
     // Delete attendance session
-    delete: async (id: string): Promise<IAttendanceSession> => {
-        const result = await prisma.attendanceSession.delete({
-            where: { id },
-            include: {
-                course: {
-                    select: { id: true, title: true, code: true },
-                },
-                teacher: {
-                    select: { id: true, name: true, email: true },
-                },
-            },
-        });
+    async delete(id: string): Promise<IAttendanceSession> {
+        const result = await this.model.findByIdAndDelete(id)
+            .populate('course', 'id title code')
+            .populate('teacher', 'id name email');
 
         return result as unknown as IAttendanceSession;
-    },
+    }
 
     // Get active sessions for a teacher and course
-    findActiveSessions: async (courseId: string, teacherId: string): Promise<IAttendanceSession[]> => {
-        const result = await prisma.attendanceSession.findMany({
-            where: {
-                courseId,
-                teacherId,
-                isActive: true,
-            },
-            include: {
-                course: {
-                    select: { id: true, title: true, code: true },
-                },
-                teacher: {
-                    select: { id: true, name: true, email: true },
-                },
-            },
-            orderBy: { createdAt: 'desc' },
-        });
+    async findActiveSessions(courseId: string, teacherId: string): Promise<IAttendanceSession[]> {
+        const result = await this.model.find({
+            courseId,
+            teacherId,
+            isActive: true,
+        })
+            .populate('course', 'id title code')
+            .populate('teacher', 'id name email')
+            .sort({ createdAt: -1 });
 
         return result as unknown as IAttendanceSession[];
-    },
-};
+    }
+}
 
-export default AttendanceSessionModel;
+// Create singleton instance
+const attendanceSessionRepository = new AttendanceSessionRepository();
+
+// Export for backward compatibility
+export const AttendanceSessionModel = attendanceSessionRepository;
+export default attendanceSessionRepository;

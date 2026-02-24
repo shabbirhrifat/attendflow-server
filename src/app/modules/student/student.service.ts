@@ -14,9 +14,13 @@ import {
 import QueryBuilder from '../../builder/QueryBuilder';
 import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
-import prisma from '../../config/prisma';
+import UserModel from '../user/user.model';
 import { generateStudentId, generateStudentUserId } from '../../utils/idGenerator';
 import { hashInfo } from '../../utils/hashInfo';
+import { AttendanceModel } from '../attendance/attendance.model';
+import { CourseEnrollmentModel } from '../course/course.model';
+import { LeaveModel } from '../leave/leave.model';
+import mongoose from 'mongoose';
 
 /** Create a new Student profile */
 const createStudent = async (data: IStudentCreate): Promise<IStudentWithUser> => {
@@ -26,9 +30,7 @@ const createStudent = async (data: IStudentCreate): Promise<IStudentWithUser> =>
     }
 
     // Check if email already exists
-    const existingEmail = await prisma.user.findUnique({
-        where: { email: data.email },
-    });
+    const existingEmail = await UserModel.findByEmail(data.email);
 
     if (existingEmail) {
         throw new AppError(StatusCodes.CONFLICT, 'Email already exists');
@@ -40,9 +42,7 @@ const createStudent = async (data: IStudentCreate): Promise<IStudentWithUser> =>
 
     if (userId) {
         // Check if user exists and has STUDENT role
-        user = await prisma.user.findUnique({
-            where: { id: userId },
-        });
+        user = await UserModel.findById(userId);
 
         if (!user) {
             throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
@@ -53,9 +53,7 @@ const createStudent = async (data: IStudentCreate): Promise<IStudentWithUser> =>
         }
 
         // Check if student profile already exists for this user
-        const existingStudent = await StudentModel.findUnique({
-            where: { userId },
-        });
+        const existingStudent = await StudentModel.findByUserId(userId);
 
         if (existingStudent) {
             throw new AppError(StatusCodes.CONFLICT, 'Student profile already exists for this user');
@@ -67,17 +65,15 @@ const createStudent = async (data: IStudentCreate): Promise<IStudentWithUser> =>
         // Hash password before creating user
         const hashedPassword = await hashInfo(data.password || 'changeme123');
 
-        user = await prisma.user.create({
-            data: {
-                id: userId,
-                name: data.name,
-                email: data.email, // Use provided email (REQUIRED)
-                username: userId,
-                password: hashedPassword, // Use hashed password
-                role: 'STUDENT',
-                status: 'ACTIVE',
-                departmentId: data.departmentId, // Optional - can be null
-            }
+        user = await UserModel.model.create({
+            _id: userId,
+            name: data.name,
+            email: data.email,
+            username: userId,
+            password: hashedPassword,
+            role: 'STUDENT',
+            status: 'ACTIVE',
+            departmentId: data.departmentId,
         });
     }
 
@@ -86,9 +82,7 @@ const createStudent = async (data: IStudentCreate): Promise<IStudentWithUser> =>
 
     // Validate batch exists (only if provided)
     if (data.batchId) {
-        const batch = await BatchModel.findUnique({
-            where: { id: data.batchId },
-        });
+        const batch = await BatchModel.model.findById(data.batchId);
 
         if (!batch) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Batch not found');
@@ -97,61 +91,50 @@ const createStudent = async (data: IStudentCreate): Promise<IStudentWithUser> =>
 
     // Validate department exists (only if provided)
     if (data.departmentId) {
-        const department = await DepartmentModel.findUnique({
-            where: { id: data.departmentId },
-        });
+        const department = await DepartmentModel.model.findById(data.departmentId);
 
         if (!department) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
         }
     }
 
-    const student = await StudentModel.create({
-        data: {
-            userId,
-            studentId, // Always auto-generated
-            batchId: data.batchId, // Optional
-            departmentId: data.departmentId, // Optional
-            semester: data.semester || 1,
-            gpa: data.gpa || 0.0,
-            credits: data.credits || 0,
-        },
-        include: {
-            user: true,
-            batch: true,
-            department: true,
-        },
+    const student = await StudentModel.model.create({
+        userId,
+        studentId,
+        batchId: data.batchId,
+        departmentId: data.departmentId,
+        semester: data.semester || 1,
+        gpa: data.gpa || 0.0,
+        credits: data.credits || 0,
     });
 
-    return student;
+    // Populate user, batch, department
+    const populatedStudent = await StudentModel.model.findById(student._id)
+        .populate('user')
+        .populate('batch')
+        .populate('department');
+
+    return populatedStudent as unknown as IStudentWithUser;
 };
 
 /** Get a Student by ID */
 const getStudentById = async (id: string): Promise<IStudentWithUser | null> => {
-    const student = await StudentModel.findUnique({
-        where: { id },
-        include: {
-            user: true,
-            batch: true,
-            department: true,
-        },
-    });
+    const student = await StudentModel.model.findById(id)
+        .populate('user')
+        .populate('batch')
+        .populate('department');
 
-    return student;
+    return student as unknown as IStudentWithUser;
 };
 
 /** Get a Student by User ID */
 const getStudentByUserId = async (userId: string): Promise<IStudentWithUser | null> => {
-    const student = await StudentModel.findUnique({
-        where: { userId },
-        include: {
-            user: true,
-            batch: true,
-            department: true,
-        },
-    });
+    const student = await StudentModel.model.findOne({ userId })
+        .populate('user')
+        .populate('batch')
+        .populate('department');
 
-    return student;
+    return student as unknown as IStudentWithUser;
 };
 
 /** Get all Students with query builder support */
@@ -163,74 +146,42 @@ const getAllStudents = async (query: any): Promise<{ data: IStudentWithUser[]; m
 
     const queryOptions = queryBuilder.getQueryOptions();
 
+    // Build filter
+    const filter: any = {
+        ...queryOptions.filter,
+        ...(query.batchId && query.batchId !== 'all' && { batchId: query.batchId }),
+        ...(query.departmentId && query.departmentId !== 'all' && { departmentId: query.departmentId }),
+        ...(query.semester && { semester: parseInt(query.semester) }),
+    };
+
+    // Handle status filter
+    if (query.status === 'active') {
+        filter.isActive = true;
+    } else if (query.status === 'inactive') {
+        filter.isActive = false;
+    } else if (query.isActive !== undefined) {
+        filter.isActive = query.isActive === 'true';
+    }
+
     // Execute query
     const [students, total] = await Promise.all([
-        StudentModel.findMany({
-            where: {
-                ...queryOptions.where,
-                ...(query.batchId && query.batchId !== 'all' && { batchId: query.batchId }),
-                ...(query.departmentId && query.departmentId !== 'all' && { departmentId: query.departmentId }),
-                ...(query.semester && { semester: parseInt(query.semester) }),
-                ...(() => {
-                    let isActiveFilter;
-                    if (query.status === 'active') {
-                        isActiveFilter = true;
-                    } else if (query.status === 'inactive') {
-                        isActiveFilter = false;
-                    } else if (query.isActive !== undefined) {
-                        isActiveFilter = query.isActive === 'true';
-                    }
-                    return isActiveFilter !== undefined ? { isActive: isActiveFilter } : {};
-                })(),
-            },
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                        phone: true,
-                        avatar: true,
-                    },
-                },
-                batch: {
-                    select: {
-                        id: true,
-                        name: true,
-                        year: true,
-                    },
-                },
-                department: {
-                    select: {
-                        id: true,
-                        name: true,
-                        code: true,
-                    },
-                },
-            },
-        }),
-        StudentModel.count({
-            where: {
-                ...queryOptions.where,
-                ...(query.batchId && query.batchId !== 'all' && { batchId: query.batchId }),
-                ...(query.departmentId && query.departmentId !== 'all' && { departmentId: query.departmentId }),
-                ...(query.semester && { semester: parseInt(query.semester) }),
-                ...(() => {
-                    let isActiveFilter;
-                    if (query.status === 'active') {
-                        isActiveFilter = true;
-                    } else if (query.status === 'inactive') {
-                        isActiveFilter = false;
-                    } else if (query.isActive !== undefined) {
-                        isActiveFilter = query.isActive === 'true';
-                    }
-                    return isActiveFilter !== undefined ? { isActive: isActiveFilter } : {};
-                })(),
-            },
-        }),
+        StudentModel.model.find(filter)
+            .populate('user', 'id name email phone avatar')
+            .populate('batch', 'id name year')
+            .populate('department', 'id name code')
+            .sort(queryOptions.sort || { name: 1 })
+            .skip(queryOptions.skip || 0)
+            .limit(queryOptions.limit || 10)
+            .lean(),
+        StudentModel.model.countDocuments(filter),
     ]);
 
-    const meta = queryBuilder.getPaginationMeta(total);
+    const meta = {
+        page: queryOptions.page || 1,
+        limit: queryOptions.limit || 10,
+        total,
+        totalPages: Math.ceil(total / (queryOptions.limit || 10)),
+    };
 
     return {
         data: students as unknown as IStudentWithUser[],
@@ -241,112 +192,71 @@ const getAllStudents = async (query: any): Promise<{ data: IStudentWithUser[]; m
 /** Update a Student */
 const updateStudent = async (id: string, data: IStudentUpdate): Promise<IStudentWithUser | null> => {
     // Check if student exists
-    const existingStudent = await StudentModel.findUnique({
-        where: { id },
-    });
+    const existingStudent = await StudentModel.model.findById(id);
 
     if (!existingStudent) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
     }
 
     // If batchId is being updated, check if it exists
-    if (data.batchId && data.batchId !== existingStudent.batchId) {
-        const batch = await BatchModel.findUnique({
-            where: { id: data.batchId },
-        });
+    if (data.batchId && data.batchId !== existingStudent.batchId?.toString()) {
+        const batch = await BatchModel.model.findById(data.batchId);
         if (!batch) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Batch not found');
         }
     }
 
     // If departmentId is being updated, check if it exists
-    if (data.departmentId && data.departmentId !== existingStudent.departmentId) {
-        const department = await DepartmentModel.findUnique({
-            where: { id: data.departmentId },
-        });
+    if (data.departmentId && data.departmentId !== existingStudent.departmentId?.toString()) {
+        const department = await DepartmentModel.model.findById(data.departmentId);
         if (!department) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
         }
     }
 
-    const updatedStudent = await StudentModel.update({
-        where: { id },
-        data: data as any,
-        include: {
-            user: true,
-            batch: true,
-            department: true,
-        },
-    });
+    const updatedStudent = await StudentModel.model.findByIdAndUpdate(id, data, { new: true })
+        .populate('user')
+        .populate('batch')
+        .populate('department');
 
-    return updatedStudent;
+    return updatedStudent as unknown as IStudentWithUser;
 };
 
 /** Delete a Student */
 const deleteStudent = async (id: string): Promise<void> => {
     // Check if student exists
-    const existingStudent = await StudentModel.findUnique({
-        where: { id },
-    });
+    const existingStudent = await StudentModel.model.findById(id);
 
     if (!existingStudent) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
     }
 
-    await StudentModel.delete({
-        where: { id },
-    });
+    await StudentModel.model.findByIdAndDelete(id);
 };
 
 /** Get Student Profile with complete information */
 const getStudentProfile = async (id: string): Promise<IStudentProfile | null> => {
-    const student = await StudentModel.findUnique({
-        where: { id },
-        include: {
-            user: true,
-            batch: true,
-            department: true,
-        },
-    });
+    const student = await StudentModel.model.findById(id)
+        .populate('user')
+        .populate('batch')
+        .populate('department')
+        .lean();
 
     if (!student) {
         return null;
     }
 
-    // Get course enrollments
-    const courseEnrollments = await prisma.courseEnrollment.findMany({
-        where: {
-            studentId: student.id,
-        },
-        select: {
-            id: true,
-        },
-    });
+    // Get course enrollments count
+    const totalCourses = await CourseEnrollmentModel.model.countDocuments({ studentId: id });
 
-    // Get attendance records
-    const attendanceRecords = await prisma.attendance.findMany({
-        where: {
-            userId: student.userId,
-        },
-        select: {
-            id: true,
-        },
-    });
+    // Get attendance records count
+    const totalAttendances = await AttendanceModel.model.countDocuments({ userId: student.userId });
 
     // Get leave records
-    const leaves = await prisma.leaveRequest.findMany({
-        where: {
-            userId: student.userId,
-        },
-        select: {
-            id: true,
-            status: true,
-        },
-    });
+    const leaves = await LeaveModel.model.find({ userId: student.userId })
+        .select('id status')
+        .lean();
 
-    // Calculate statistics
-    const totalCourses = courseEnrollments.length;
-    const totalAttendances = attendanceRecords.length;
     const totalLeaves = leaves.length;
     const approvedLeaves = leaves.filter((leave: any) => leave.status === 'APPROVED').length;
     const pendingLeaves = leaves.filter((leave: any) => leave.status === 'PENDING').length;
@@ -354,19 +264,15 @@ const getStudentProfile = async (id: string): Promise<IStudentProfile | null> =>
     // Calculate attendance percentage
     let attendancePercentage = 0;
     if (totalAttendances > 0) {
-        const presentAttendances = await prisma.attendance.count({
-            where: {
-                userId: student.userId,
-                status: 'PRESENT',
-            },
+        const presentAttendances = await AttendanceModel.model.countDocuments({
+            userId: student.userId,
+            status: 'PRESENT',
         });
         attendancePercentage = Math.round((presentAttendances / totalAttendances) * 100);
     }
 
-    const studentProfile = student;
-
     return {
-        ...studentProfile,
+        ...student,
         totalCourses,
         totalAttendances,
         totalLeaves,
@@ -382,62 +288,45 @@ const getStudentAttendance = async (
     query: any
 ): Promise<{ data: IStudentAttendanceView[]; meta: any }> => {
     // Get student by ID
-    const student = await StudentModel.findUnique({
-        where: { id: studentId },
-    });
+    const student = await StudentModel.model.findById(studentId);
 
     if (!student) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
     }
 
-    const queryBuilder = new QueryBuilder(query);
-    queryBuilder.filter().sort().paginate();
-
-    const queryOptions = queryBuilder.getQueryOptions();
     const page = parseInt(query.page || '1');
     const limit = parseInt(query.limit || '10');
     const skip = (page - 1) * limit;
 
-    // Build where clause
-    const whereClause: any = {
+    // Build filter
+    const filter: any = {
         userId: student.userId,
     };
 
     if (query.courseId) {
-        whereClause.courseId = query.courseId;
+        filter.courseId = query.courseId;
     }
 
     if (query.status) {
-        whereClause.status = query.status;
+        filter.status = query.status;
     }
 
     if (query.startDate && query.endDate) {
-        whereClause.date = {
-            gte: new Date(query.startDate),
-            lte: new Date(query.endDate),
+        filter.date = {
+            $gte: new Date(query.startDate),
+            $lte: new Date(query.endDate),
         };
     }
 
     // Execute query
     const [attendances, total] = await Promise.all([
-        prisma.attendance.findMany({
-            where: whereClause,
-            include: {
-                course: {
-                    select: {
-                        id: true,
-                        title: true,
-                        code: true,
-                    },
-                },
-            },
-            orderBy: {
-                date: 'desc',
-            },
-            skip,
-            take: limit,
-        }),
-        prisma.attendance.count({ where: whereClause }),
+        AttendanceModel.model.find(filter)
+            .populate('course', 'id title code')
+            .sort({ date: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean(),
+        AttendanceModel.model.countDocuments(filter),
     ]);
 
     const meta = {
@@ -456,73 +345,86 @@ const getStudentAttendance = async (
 /** Get Student Attendance Summary */
 const getStudentAttendanceSummary = async (studentId: string): Promise<IStudentAttendanceSummary> => {
     // Get student by ID
-    const student = await StudentModel.findUnique({
-        where: { id: studentId },
-    });
+    const student = await StudentModel.model.findById(studentId);
 
     if (!student) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
     }
 
-    // Get attendance counts
-    const [
-        totalClasses,
-        presentCount,
-        absentCount,
-        lateCount,
-        excusedCount,
-    ] = await Promise.all([
-        prisma.attendance.count({
-            where: { userId: student.userId },
-        }),
-        prisma.attendance.count({
-            where: { userId: student.userId, status: 'PRESENT' },
-        }),
-        prisma.attendance.count({
-            where: { userId: student.userId, status: 'ABSENT' },
-        }),
-        prisma.attendance.count({
-            where: { userId: student.userId, status: 'LATE' },
-        }),
-        prisma.attendance.count({
-            where: { userId: student.userId, status: 'EXCUSED' },
-        }),
+    // Get attendance counts using aggregation
+    const stats = await AttendanceModel.model.aggregate([
+        { $match: { userId: student.userId } },
+        {
+            $group: {
+                _id: null,
+                totalClasses: { $sum: 1 },
+                presentCount: {
+                    $sum: { $cond: [{ $eq: ['$status', 'PRESENT'] }, 1, 0] },
+                },
+                absentCount: {
+                    $sum: { $cond: [{ $eq: ['$status', 'ABSENT'] }, 1, 0] },
+                },
+                lateCount: {
+                    $sum: { $cond: [{ $eq: ['$status', 'LATE'] }, 1, 0] },
+                },
+                excusedCount: {
+                    $sum: { $cond: [{ $eq: ['$status', 'EXCUSED'] }, 1, 0] },
+                },
+            },
+        },
     ]);
 
-    const attendancePercentage = totalClasses > 0
-        ? Math.round((presentCount / totalClasses) * 100)
+    const result = stats[0] || {
+        totalClasses: 0,
+        presentCount: 0,
+        absentCount: 0,
+        lateCount: 0,
+        excusedCount: 0,
+    };
+
+    const attendancePercentage = result.totalClasses > 0
+        ? Math.round((result.presentCount / result.totalClasses) * 100)
         : 0;
 
     // Get monthly breakdown (last 6 months)
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    const monthlyData = await prisma.$queryRaw`
-    SELECT 
-      TO_CHAR(date, 'YYYY-MM') as month,
-      status,
-      COUNT(*) as count
-    FROM attendances 
-    WHERE userId = ${student.userId} 
-      AND date >= ${sixMonthsAgo}
-    GROUP BY TO_CHAR(date, 'YYYY-MM'), status
-    ORDER BY month
-  ` as { month: string; status: string; count: bigint }[];
+    const monthlyData = await AttendanceModel.model.aggregate([
+        {
+            $match: {
+                userId: student.userId,
+                date: { $gte: sixMonthsAgo },
+            },
+        },
+        {
+            $group: {
+                _id: {
+                    month: { $dateToString: { format: '%Y-%m', date: '$date' } },
+                    status: '$status',
+                },
+                count: { $sum: 1 },
+            },
+        },
+        {
+            $sort: { '_id.month': 1 },
+        },
+    ]);
 
     // Process monthly data
-    const monthlyBreakdown = monthlyData.reduce((acc: any, item) => {
-        const existingMonth = acc.find((m: any) => m.month === item.month);
+    const monthlyBreakdown = monthlyData.reduce((acc: any[], item) => {
+        const existingMonth = acc.find((m: any) => m.month === item._id.month);
 
         if (existingMonth) {
-            existingMonth[item.status.toLowerCase() as string] = Number(item.count);
+            existingMonth[item._id.status.toLowerCase() as string] = item.count;
         } else {
             acc.push({
-                month: item.month,
+                month: item._id.month,
                 present: 0,
                 absent: 0,
                 late: 0,
                 excused: 0,
-                [item.status.toLowerCase()]: Number(item.count),
+                [item._id.status.toLowerCase()]: item.count,
             });
         }
 
@@ -530,11 +432,11 @@ const getStudentAttendanceSummary = async (studentId: string): Promise<IStudentA
     }, []);
 
     return {
-        totalClasses,
-        presentCount,
-        absentCount,
-        lateCount,
-        excusedCount,
+        totalClasses: result.totalClasses,
+        presentCount: result.presentCount,
+        absentCount: result.absentCount,
+        lateCount: result.lateCount,
+        excusedCount: result.excusedCount,
         attendancePercentage,
         monthlyBreakdown,
     };
@@ -546,551 +448,103 @@ const submitLeaveRequest = async (
     leaveData: IStudentLeaveRequest
 ): Promise<any> => {
     // Get student by ID
-    const student = await StudentModel.findUnique({
-        where: { id: studentId },
-    });
+    const student = await StudentModel.model.findById(studentId);
 
     if (!student) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
     }
 
     // Check if there's an overlapping leave request
-    const overlappingLeave = await prisma.leaveRequest.findFirst({
-        where: {
-            userId: student.userId,
-            OR: [
-                {
-                    AND: [
-                        { startDate: { lte: leaveData.startDate } },
-                        { endDate: { gte: leaveData.startDate } },
-                    ],
-                },
-                {
-                    AND: [
-                        { startDate: { lte: leaveData.endDate } },
-                        { endDate: { gte: leaveData.endDate } },
-                    ],
-                },
-                {
-                    AND: [
-                        { startDate: { gte: leaveData.startDate } },
-                        { endDate: { lte: leaveData.endDate } },
-                    ],
-                },
-            ],
-            status: { in: ['PENDING', 'APPROVED'] },
-        },
+    const overlappingLeave = await LeaveModel.model.findOne({
+        userId: student.userId,
+        $or: [
+            {
+                $and: [
+                    { startDate: { $lte: leaveData.startDate } },
+                    { endDate: { $gte: leaveData.startDate } },
+                ],
+            },
+            {
+                $and: [
+                    { startDate: { $lte: leaveData.endDate } },
+                    { endDate: { $gte: leaveData.endDate } },
+                ],
+            },
+            {
+                $and: [
+                    { startDate: { $gte: leaveData.startDate } },
+                    { endDate: { $lte: leaveData.endDate } },
+                ],
+            },
+        ],
     });
 
     if (overlappingLeave) {
-        throw new AppError(StatusCodes.CONFLICT, 'You already have a leave request for this period');
+        throw new AppError(StatusCodes.CONFLICT, 'You have an overlapping leave request');
     }
 
-    const leave = await prisma.leaveRequest.create({
-        data: {
-            userId: student.userId,
-            startDate: leaveData.startDate,
-            endDate: leaveData.endDate,
-            reason: leaveData.reason,
-            status: 'PENDING',
-        },
+    const leave = await LeaveModel.model.create({
+        userId: student.userId,
+        studentId: studentId,
+        startDate: leaveData.startDate,
+        endDate: leaveData.endDate,
+        reason: leaveData.reason,
+        type: leaveData.type,
+        documents: leaveData.documents,
     });
 
     return leave;
 };
 
-/** Update Student Profile */
-const updateStudentProfile = async (
-    studentId: string,
-    data: IStudentProfileUpdate
-): Promise<any> => {
-    // Get student by ID
-    const student = await StudentModel.findUnique({
-        where: { id: studentId },
-        include: {
-            user: true,
-        },
-    });
-
-    if (!student) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
-    }
-
-    // Note: Email update is handled separately through user management
-    // For now, we'll only update the other profile fields
-
-    // If username is being updated, check if it's already taken
-    if (data.username && data.username !== student.user.username) {
-        const usernameExists = await prisma.user.findUnique({
-            where: { username: data.username },
-        });
-        if (usernameExists) {
-            throw new AppError(StatusCodes.CONFLICT, 'Username already exists');
-        }
-    }
-
-    const updatedUser = await prisma.user.update({
-        where: { id: student.userId },
-        data: data as any,
-    });
-
-    // Remove password from response
-    const { password, ...userWithoutPassword } = updatedUser;
-    return userWithoutPassword;
-};
-
 /** Get Student Dashboard Data */
 const getStudentDashboard = async (studentId: string): Promise<IStudentDashboard> => {
-    // Get student profile
-    const profile = await getStudentProfile(studentId);
-    if (!profile) {
+    const student = await StudentModel.model.findById(studentId)
+        .populate('batch')
+        .populate('department')
+        .lean();
+
+    if (!student) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
     }
 
-    // Get recent attendance (last 10 records)
-    const recentAttendance = await prisma.attendance.findMany({
-        where: { userId: profile.user.id },
-        include: {
-            course: {
-                select: {
-                    id: true,
-                    title: true,
-                    code: true,
-                },
-            },
-        },
-        orderBy: {
-            date: 'desc',
-        },
-        take: 10,
-    });
+    // Get attendance summary
+    const attendanceSummary = await getStudentAttendanceSummary(studentId);
 
-    // Get upcoming classes (enrolled courses)
-    const upcomingClasses = await prisma.courseEnrollment.findMany({
-        where: {
-            studentId: profile.id,
-        },
-        include: {
-            course: {
-                select: {
-                    id: true,
-                    title: true,
-                    code: true,
-                },
-            },
-        },
-        take: 5,
-    });
+    // Get recent attendance
+    const recentAttendance = await AttendanceModel.model.find({
+        userId: student.userId,
+    })
+        .populate('course', 'id title code')
+        .sort({ date: -1 })
+        .limit(5)
+        .lean();
 
-    // Get leave summary
-    const [totalLeaves, approvedLeaves, pendingLeaves, rejectedLeaves] = await Promise.all([
-        prisma.leaveRequest.count({
-            where: { userId: profile.user.id },
-        }),
-        prisma.leaveRequest.count({
-            where: { userId: profile.user.id, status: 'APPROVED' },
-        }),
-        prisma.leaveRequest.count({
-            where: { userId: profile.user.id, status: 'PENDING' },
-        }),
-        prisma.leaveRequest.count({
-            where: { userId: profile.user.id, status: 'REJECTED' },
-        }),
-    ]);
+    // Get pending leaves
+    const pendingLeaves = await LeaveModel.model.find({
+        userId: student.userId,
+        status: 'PENDING',
+    })
+        .sort({ createdAt: -1 })
+        .lean();
 
-    // Get recent notifications
-    const notifications = await prisma.notification.findMany({
-        where: { recipientId: profile.user.id },
-        orderBy: {
-            createdAt: 'desc',
-        },
-        take: 5,
-    });
+    // Get enrolled courses
+    const enrollments = await CourseEnrollmentModel.model.find({
+        studentId: studentId,
+    })
+        .populate('course', 'id title code credits')
+        .lean();
 
     return {
-        profile,
-        recentAttendance: recentAttendance as IStudentAttendanceView[],
-        upcomingClasses: upcomingClasses.map(enrollment => ({
-            id: enrollment.course.id,
-            title: enrollment.course.title,
-            code: enrollment.course.code,
-            nextClass: new Date(), // This would be calculated based on course schedule
-        })),
-        leaveSummary: {
-            total: totalLeaves,
-            approved: approvedLeaves,
-            pending: pendingLeaves,
-            rejected: rejectedLeaves,
-        },
-        notifications: notifications.map(notification => ({
-            id: notification.id,
-            title: notification.title,
-            message: notification.message,
-            type: notification.type.toString(),
-            createdAt: notification.createdAt,
-            isRead: notification.readStatus,
-        })),
+        student: student as any,
+        attendanceSummary,
+        recentAttendance: recentAttendance as any,
+        pendingLeaves: pendingLeaves as any,
+        enrolledCourses: enrollments.map((e: any) => e.course) as any,
     };
 };
 
-/** Assign Student to Batch */
-const assignStudentToBatch = async (studentId: string, batchId: string): Promise<any> => {
-    // Check if student exists
-    const student = await StudentModel.findUnique({
-        where: { id: studentId },
-    });
-
-    if (!student) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
-    }
-
-    // Check if batch exists
-    const batch = await BatchModel.findUnique({
-        where: { id: batchId },
-    });
-
-    if (!batch) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'Batch not found');
-    }
-
-    // Update student with batch
-    const updatedStudent = await StudentModel.update({
-        where: { id: studentId },
-        data: { batchId },
-        include: {
-            user: true,
-            batch: true,
-            department: true,
-        },
-    });
-
-    return updatedStudent;
-};
-
-/** Remove Student from Batch */
-const removeStudentFromBatch = async (studentId: string): Promise<any> => {
-    // Check if student exists
-    const student = await StudentModel.findUnique({
-        where: { id: studentId },
-    });
-
-    if (!student) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
-    }
-
-    // Update student to remove batch
-    const updatedStudent = await StudentModel.update({
-        where: { id: studentId },
-        data: { batchId: undefined },
-        include: {
-            user: true,
-            batch: true,
-            department: true,
-        },
-    });
-
-    return updatedStudent;
-};
-
-/** Assign Student to Department */
-const assignStudentToDepartment = async (studentId: string, departmentId: string): Promise<any> => {
-    // Check if student exists
-    const student = await StudentModel.findUnique({
-        where: { id: studentId },
-    });
-
-    if (!student) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
-    }
-
-    // Check if department exists
-    const department = await DepartmentModel.findUnique({
-        where: { id: departmentId },
-    });
-
-    if (!department) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
-    }
-
-    // Update student with department
-    const updatedStudent = await StudentModel.update({
-        where: { id: studentId },
-        data: { departmentId },
-        include: {
-            user: true,
-            batch: true,
-            department: true,
-        },
-    });
-
-    return updatedStudent;
-};
-
-/** Remove Student from Department */
-const removeStudentFromDepartment = async (studentId: string): Promise<any> => {
-    // Check if student exists
-    const student = await StudentModel.findUnique({
-        where: { id: studentId },
-    });
-
-    if (!student) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
-    }
-
-    // Update student to remove department
-    const updatedStudent = await StudentModel.update({
-        where: { id: studentId },
-        data: { departmentId: undefined },
-        include: {
-            user: true,
-            batch: true,
-            department: true,
-        },
-    });
-
-    return updatedStudent;
-};
-
-/** Assign Student to Course */
-const assignStudentToCourse = async (studentId: string, courseId: string): Promise<any> => {
-    // Check if student exists
-    const student = await StudentModel.findUnique({
-        where: { id: studentId },
-    });
-
-    if (!student) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
-    }
-
-    // Check if course exists
-    const course = await prisma.course.findUnique({
-        where: { id: courseId },
-    });
-
-    if (!course) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'Course not found');
-    }
-
-    // Check if already enrolled
-    const existingEnrollment = await prisma.courseEnrollment.findUnique({
-        where: {
-            studentId_courseId: {
-                studentId: student.userId,
-                courseId,
-            },
-        },
-    });
-
-    if (existingEnrollment) {
-        throw new AppError(StatusCodes.CONFLICT, 'Student already enrolled in this course');
-    }
-
-    // Create enrollment
-    const enrollment = await prisma.courseEnrollment.create({
-        data: {
-            studentId: student.userId,
-            courseId,
-        },
-        include: {
-            course: true,
-        },
-    });
-
-    return enrollment;
-};
-
-/** Remove Student from Course */
-const removeStudentFromCourse = async (studentId: string, courseId: string): Promise<any> => {
-    // Check if student exists
-    const student = await StudentModel.findUnique({
-        where: { id: studentId },
-    });
-
-    if (!student) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
-    }
-
-    // Check if enrollment exists
-    const enrollment = await prisma.courseEnrollment.findFirst({
-        where: {
-            studentId: student.userId,
-            courseId,
-        },
-    });
-
-    if (!enrollment) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'Enrollment not found');
-    }
-
-    // Delete enrollment
-    await prisma.courseEnrollment.delete({
-        where: {
-            id: enrollment.id,
-        },
-    });
-
-    return { message: 'Student removed from course successfully' };
-};
-
-/** Bulk Assign Students to Batch */
-const bulkAssignStudentsToBatch = async (studentIds: string[], batchId: string): Promise<{ count: number; students: any[] }> => {
-    // Check if batch exists
-    const batch = await BatchModel.findUnique({
-        where: { id: batchId },
-    });
-
-    if (!batch) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'Batch not found');
-    }
-
-    // Update multiple students
-    const result = await prisma.student.updateMany({
-        where: {
-            id: { in: studentIds }
-        },
-        data: {
-            batchId
-        }
-    });
-
-    // Get updated students
-    const updatedStudents = await StudentModel.findMany({
-        where: {
-            id: { in: studentIds }
-        },
-        include: {
-            user: true,
-            batch: true,
-            department: true,
-        },
-    });
-
-    return {
-        count: result.count,
-        students: updatedStudents,
-    };
-};
-
-/** Bulk Assign Students to Department */
-const bulkAssignStudentsToDepartment = async (studentIds: string[], departmentId: string): Promise<{ count: number; students: any[] }> => {
-    // Check if department exists
-    const department = await DepartmentModel.findUnique({
-        where: { id: departmentId },
-    });
-
-    if (!department) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
-    }
-
-    // Update multiple students
-    const result = await prisma.student.updateMany({
-        where: {
-            id: { in: studentIds }
-        },
-        data: {
-            departmentId
-        }
-    });
-
-    // Get updated students
-    const updatedStudents = await StudentModel.findMany({
-        where: {
-            id: { in: studentIds }
-        },
-        include: {
-            user: true,
-            batch: true,
-            department: true,
-        },
-    });
-
-    return {
-        count: result.count,
-        students: updatedStudents,
-    };
-};
-
-/** Get Student Statistics */
-const getStudentStats = async (): Promise<any> => {
-    const [
-        totalStudents,
-        activeStudents,
-        inactiveStudents,
-        studentsByDepartment,
-        studentsByBatch,
-        studentsBySemester
-    ] = await Promise.all([
-        prisma.student.count(),
-        prisma.student.count({ where: { user: { status: 'ACTIVE' } } }),
-        prisma.student.count({ where: { user: { status: 'INACTIVE' } } }),
-        prisma.student.groupBy({
-            by: ['departmentId'],
-            _count: { _all: true },
-        }),
-        prisma.student.groupBy({
-            by: ['batchId'],
-            _count: { _all: true },
-        }),
-        prisma.student.groupBy({
-            by: ['semester'],
-            _count: { _all: true },
-        }),
-    ]);
-
-    // Get department names for the stats
-    const departments = await prisma.department.findMany({
-        where: { id: { in: studentsByDepartment.map(d => d.departmentId).filter((id): id is string => id !== null) } },
-        select: { id: true, name: true }
-    });
-
-    // Get batch names for the stats
-    const batches = await prisma.batch.findMany({
-        where: { id: { in: studentsByBatch.map(b => b.batchId).filter((id): id is string => id !== null) } },
-        select: { id: true, name: true }
-    });
-
-    return {
-        total: totalStudents,
-        active: activeStudents,
-        inactive: inactiveStudents,
-        byDepartment: studentsByDepartment.map(d => ({
-            departmentId: d.departmentId,
-            name: departments.find(dept => dept.id === d.departmentId)?.name || 'Unknown',
-            count: d._count._all,
-        })),
-        byBatch: studentsByBatch.map(b => ({
-            batchId: b.batchId,
-            name: batches.find(batch => batch.id === b.batchId)?.name || 'Unknown',
-            count: b._count._all,
-        })),
-        bySemester: studentsBySemester.map(s => ({
-            semester: s.semester,
-            count: s._count._all,
-        })),
-    };
-};
-
-/** Get Unassigned Students */
-const getUnassignedStudents = async (): Promise<any[]> => {
-    // Get students without batch or department
-    const unassignedStudents = await StudentModel.findMany({
-        where: {
-            OR: [
-                { batchId: undefined },
-                { departmentId: undefined }
-            ]
-        },
-        include: {
-            user: true,
-            batch: true,
-            department: true,
-        },
-    });
-
-    return unassignedStudents;
-};
-
-export const studentServices = {
+// Export all student services
+export const StudentService = {
     createStudent,
     getStudentById,
     getStudentByUserId,
@@ -1101,17 +555,7 @@ export const studentServices = {
     getStudentAttendance,
     getStudentAttendanceSummary,
     submitLeaveRequest,
-    updateStudentProfile,
     getStudentDashboard,
-    // Assignment methods
-    assignStudentToBatch,
-    removeStudentFromBatch,
-    assignStudentToDepartment,
-    removeStudentFromDepartment,
-    assignStudentToCourse,
-    removeStudentFromCourse,
-    bulkAssignStudentsToBatch,
-    bulkAssignStudentsToDepartment,
-    getUnassignedStudents,
-    getStudentStats,
 };
+
+export default StudentService;

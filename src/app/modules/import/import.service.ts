@@ -4,10 +4,10 @@ import { StatusCodes } from 'http-status-codes';
 import bcrypt from 'bcrypt';
 import { hashInfo } from '../../utils/hashInfo';
 import UserModel from '../user/user.model';
-import { CourseModel } from '../course';
-import { DepartmentModel } from '../organization/department.model';
-import { BatchModel } from '../organization/batch.model';
-import prisma from '../../config/prisma';
+import { CourseModel } from '../course/course.model';
+import { DepartmentModel, BatchModel } from '../organization/organization.model';
+import { StudentModel } from '../student/student.model';
+import { TeacherModel } from '../teacher/teacher.model';
 
 // CSV Row interfaces
 interface StudentCsvRow {
@@ -40,7 +40,7 @@ interface ValidationError {
   row: number;
   field: string;
   message: string;
-  value?: any;
+  value?: unknown;
 }
 
 interface ImportResult {
@@ -133,42 +133,52 @@ const importStudents = async (rows: StudentCsvRow[], options: any): Promise<Impo
         continue;
       }
 
-      // Check if student exists
-      const existingStudent = await UserModel.findFirst({
-        where: {
-          OR: [
-            { email: row.email },
-            { studentId: row.studentId },
-          ],
-        },
-      });
+      // Check if student exists by email or studentId
+      const existingStudentUser = await UserModel.findByEmail(row.email);
+      const existingStudent = existingStudentUser ? await StudentModel.findByStudentId(row.studentId) : null;
 
       // Hash password (default password is studentId)
       const hashedPassword = await hashInfo(row.studentId);
 
       const studentData = {
         email: row.email,
-        firstName: row.firstName,
-        lastName: row.lastName,
         name: `${row.firstName} ${row.lastName}`,
         password: hashedPassword,
         role: 'STUDENT' as const,
-        studentId: row.studentId,
-        phone: row.phone || null,
+        phone: row.phone || undefined,
         status: 'ACTIVE' as const,
       };
 
       if (existingStudent && options.updateExisting) {
-        // Update existing student
-        await UserModel.update({
-          where: { id: existingStudent.id },
-          data: studentData,
-        });
+        // Update existing student user
+        await UserModel.update(existingStudent.userId.toString(), studentData);
         result.updated++;
         result.success++;
       } else if (!existingStudent && !options.skipDuplicates) {
-        // Create new student
-        await UserModel.create({ data: studentData });
+        // Create new student user and profile
+        const newUser = await UserModel.create(studentData);
+
+        // Find batch and department by name
+        let batchId: string | undefined;
+        let departmentId: string | undefined;
+
+        if (row.batch) {
+          const batch = await BatchModel.model.findOne({ name: row.batch });
+          if (batch) batchId = batch._id.toString();
+        }
+
+        if (row.department) {
+          const department = await DepartmentModel.model.findOne({ name: row.department });
+          if (department) departmentId = department._id.toString();
+        }
+
+        await StudentModel.model.create({
+          userId: newUser._id.toString(),
+          studentId: row.studentId,
+          batchId,
+          departmentId,
+        });
+
         result.created++;
         result.success++;
       } else if (existingStudent && options.skipDuplicates) {
@@ -213,36 +223,40 @@ const importTeachers = async (rows: TeacherCsvRow[], options: any): Promise<Impo
         continue;
       }
 
-      const existingTeacher = await UserModel.findFirst({
-        where: {
-          OR: [
-            { email: row.email },
-          ],
-        },
-      });
+      const existingTeacherUser = await UserModel.findByEmail(row.email);
+      const existingTeacher = existingTeacherUser ? await TeacherModel.findByEmployeeId(row.employeeId) : null;
 
       const hashedPassword = await hashInfo(row.employeeId);
 
       const teacherData = {
         email: row.email,
-        firstName: row.firstName,
-        lastName: row.lastName,
         name: `${row.firstName} ${row.lastName}`,
         password: hashedPassword,
         role: 'TEACHER' as const,
-        phone: row.phone || null,
+        phone: row.phone || undefined,
         status: 'ACTIVE' as const,
       };
 
       if (existingTeacher && options.updateExisting) {
-        await UserModel.update({
-          where: { id: existingTeacher.id },
-          data: teacherData,
-        });
+        await UserModel.update(existingTeacher.userId.toString(), teacherData);
         result.updated++;
         result.success++;
       } else if (!existingTeacher && !options.skipDuplicates) {
-        await UserModel.create({ data: teacherData });
+        const newUser = await UserModel.create(teacherData);
+
+        // Find department by name
+        let departmentId: string | undefined;
+        if (row.department) {
+          const department = await DepartmentModel.model.findOne({ name: row.department });
+          if (department) departmentId = department._id.toString();
+        }
+
+        await TeacherModel.model.create({
+          userId: newUser._id.toString(),
+          employeeId: row.employeeId,
+          departmentId,
+        });
+
         result.created++;
         result.success++;
       } else if (existingTeacher && options.skipDuplicates) {
@@ -286,25 +300,20 @@ const importCourses = async (rows: CourseCsvRow[], options: any): Promise<Import
         continue;
       }
 
-      const existingCourse = await CourseModel.findUnique({
-        where: { code: row.code },
-      });
+      const existingCourse = await CourseModel.model.findOne({ code: row.code });
 
       const courseData = {
         code: row.code,
-        name: row.name,
+        title: row.name,
         credits: row.credits ? parseInt(row.credits) : 3,
       };
 
       if (existingCourse && options.updateExisting) {
-        await CourseModel.update({
-          where: { id: existingCourse.id },
-          data: courseData,
-        });
+        await CourseModel.model.findByIdAndUpdate(existingCourse._id, courseData);
         result.updated++;
         result.success++;
       } else if (!existingCourse && !options.skipDuplicates) {
-        await CourseModel.create({ data: courseData });
+        await CourseModel.model.create(courseData);
         result.created++;
         result.success++;
       } else if (existingCourse && options.skipDuplicates) {

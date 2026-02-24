@@ -32,9 +32,7 @@ const AuthorizeRequest = (...roles: string[]) => {
         throw new AppError(StatusCodes.UNAUTHORIZED, 'Unauthorized Access');
       }
 
-      const user = await UserModel.findUnique({
-        where: { id },
-      });
+      const user = await UserModel.findById(id);
 
       if (!user) {
         throw new AppError(StatusCodes.UNAUTHORIZED, 'User not found');

@@ -4,26 +4,25 @@
  * Handles business logic for tracking system actions
  */
 
-import prisma from '../../config/prisma';
+import { AuditLogModel } from './audit.model';
 import { IAuditLogData, IAuditLogFilter, IAuditLogResponse, AuditAction } from './audit.interface';
+import UserModel from '../user/user.model';
 
 /**
  * Create an audit log entry
  */
 export const createAuditLog = async (data: IAuditLogData): Promise<void> => {
   try {
-    await prisma.auditLog.create({
-      data: {
-        userId: data.userId,
-        action: data.action,
-        entity: data.entity,
-        entityId: data.entityId,
-        changes: data.changes,
-        ipAddress: data.ipAddress,
-        userAgent: data.userAgent,
-        success: data.success ?? true,
-        errorMessage: data.errorMessage,
-      },
+    await AuditLogModel.model.create({
+      userId: data.userId,
+      action: data.action,
+      entity: data.entity,
+      entityId: data.entityId,
+      changes: data.changes,
+      ipAddress: data.ipAddress,
+      userAgent: data.userAgent,
+      success: data.success ?? true,
+      errorMessage: data.errorMessage,
     });
   } catch (error) {
     // Log errors but don't throw - audit logging should not break the application
@@ -61,10 +60,10 @@ export const getAuditLogs = async (
   if (filters.startDate || filters.endDate) {
     where.createdAt = {};
     if (filters.startDate) {
-      where.createdAt.gte = filters.startDate;
+      where.createdAt.$gte = filters.startDate;
     }
     if (filters.endDate) {
-      where.createdAt.lte = filters.endDate;
+      where.createdAt.$lte = filters.endDate;
     }
   }
 
@@ -73,31 +72,21 @@ export const getAuditLogs = async (
   }
 
   // Build orderBy based on filters
-  const orderBy: any = {};
   const sortBy = filters.sortBy || 'createdAt';
   const sortOrder = filters.sortOrder || 'desc';
-  orderBy[sortBy] = sortOrder;
+  const orderBy: any = {};
+  orderBy[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
   // Get total count
-  const total = await prisma.auditLog.count({ where });
+  const total = await AuditLogModel.model.countDocuments(where);
 
   // Get paginated logs
-  const logs = await prisma.auditLog.findMany({
-    where,
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-        },
-      },
-    },
-    orderBy,
-    skip: (page - 1) * limit,
-    take: limit,
-  });
+  const logs = await AuditLogModel.model
+    .find(where)
+    .populate('user', 'id name email role')
+    .sort(orderBy)
+    .skip((page - 1) * limit)
+    .limit(limit);
 
   return {
     success: true,
@@ -174,15 +163,13 @@ export const cleanupOldLogs = async (daysToKeep: number = 90): Promise<{ deleted
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
 
-  const result = await prisma.auditLog.deleteMany({
-    where: {
-      createdAt: {
-        lt: cutoffDate,
-      },
+  const result = await AuditLogModel.model.deleteMany({
+    createdAt: {
+      $lt: cutoffDate,
     },
   });
 
-  return { deleted: result.count };
+  return { deleted: result.deletedCount || 0 };
 };
 
 /**
@@ -201,56 +188,55 @@ export const getAuditStats = async (days: number = 30): Promise<any> => {
     topUsers,
   ] = await Promise.all([
     // Total logs
-    prisma.auditLog.count({
-      where: { createdAt: { gte: startDate } },
+    AuditLogModel.model.countDocuments({
+      createdAt: { $gte: startDate },
     }),
 
     // Successful logs
-    prisma.auditLog.count({
-      where: { createdAt: { gte: startDate }, success: true },
+    AuditLogModel.model.countDocuments({
+      createdAt: { $gte: startDate },
+      success: true,
     }),
 
     // Failed logs
-    prisma.auditLog.count({
-      where: { createdAt: { gte: startDate }, success: false },
+    AuditLogModel.model.countDocuments({
+      createdAt: { $gte: startDate },
+      success: false,
     }),
 
     // Count by action
-    prisma.auditLog.groupBy({
-      by: ['action'],
-      where: { createdAt: { gte: startDate } },
-      _count: true,
-      orderBy: { _count: { action: 'desc' } },
-    }),
+    AuditLogModel.model.aggregate([
+      { $match: { createdAt: { $gte: startDate } } },
+      { $group: { _id: '$action', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]),
 
     // Count by entity
-    prisma.auditLog.groupBy({
-      by: ['entity'],
-      where: { createdAt: { gte: startDate } },
-      _count: true,
-      orderBy: { _count: { entity: 'desc' } },
-    }),
+    AuditLogModel.model.aggregate([
+      { $match: { createdAt: { $gte: startDate } } },
+      { $group: { _id: '$entity', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]),
 
     // Top active users
-    prisma.auditLog.groupBy({
-      by: ['userId'],
-      where: { createdAt: { gte: startDate } },
-      _count: true,
-      orderBy: { _count: { userId: 'desc' } },
-      take: 10,
-    }),
+    AuditLogModel.model.aggregate([
+      { $match: { createdAt: { $gte: startDate } } },
+      { $group: { _id: '$userId', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 },
+    ]),
   ]);
 
   // Get user details for top users
-  const userIds = topUsers.map((u) => u.userId);
-  const users = await prisma.user.findMany({
-    where: { id: { in: userIds } },
-    select: { id: true, name: true, email: true, role: true },
-  });
+  const userIds = topUsers.map((u: any) => u._id);
+  const users = await UserModel.model.find({
+    _id: { $in: userIds },
+  }).select('id name email role');
 
-  const topUsersWithData = topUsers.map((u) => ({
-    ...u,
-    user: users.find((user) => user.id === u.userId),
+  const topUsersWithData = topUsers.map((u: any) => ({
+    userId: u._id,
+    count: u.count,
+    user: users.find((user: any) => user.id === u._id),
   }));
 
   return {
@@ -259,8 +245,8 @@ export const getAuditStats = async (days: number = 30): Promise<any> => {
     successful: successfulLogs,
     failed: failedLogs,
     successRate: totalLogs > 0 ? ((successfulLogs / totalLogs) * 100).toFixed(2) + '%' : 'N/A',
-    byAction: actionCounts,
-    byEntity: entityCounts,
+    byAction: actionCounts.map((a: any) => ({ action: a._id, count: a.count })),
+    byEntity: entityCounts.map((e: any) => ({ entity: e._id, count: e.count })),
     topUsers: topUsersWithData,
   };
 };

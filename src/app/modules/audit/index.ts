@@ -5,7 +5,9 @@
  */
 
 export * from './audit.interface';
-export * from './audit.service';
 export * from './audit.controller';
 export * from './audit.middleware';
 export * from './audit.validation';
+
+// Export service with explicit name to avoid conflicts
+export { AuditService } from './audit.service';

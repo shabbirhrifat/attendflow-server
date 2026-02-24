@@ -4,14 +4,15 @@ import QueryBuilder from '../../builder/QueryBuilder';
 import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
 import { hashInfo } from '../../utils/hashInfo';
-import prisma from '../../config/prisma';
+import { TeacherModel } from '../teacher/teacher.model';
+import { StudentModel } from '../student/student.model';
+import { LeaveRequestModel } from '../leave/leave.model';
+import { AttendanceModel } from '../attendance/attendance.model';
 
 /** Create a new User */
 const createUser = async (data: IUserCreate): Promise<IUserResponse> => {
   // Check if user with email already exists
-  const existingUser = await UserModel.findUnique({
-    where: { email: data.email },
-  });
+  const existingUser = await UserModel.findByEmail(data.email);
 
   if (existingUser) {
     throw new AppError(StatusCodes.CONFLICT, 'User with this email already exists');
@@ -21,10 +22,8 @@ const createUser = async (data: IUserCreate): Promise<IUserResponse> => {
   const hashedPassword = await hashInfo(data.password);
 
   const user = await UserModel.create({
-    data: {
-      ...data,
-      password: hashedPassword,
-    },
+    ...data,
+    password: hashedPassword,
   });
 
   // Remove password from response
@@ -34,16 +33,15 @@ const createUser = async (data: IUserCreate): Promise<IUserResponse> => {
 
 /** Get a User by ID */
 const getUserById = async (id: string): Promise<IUserResponse | null> => {
-  const user = await UserModel.findUnique({
-    where: { id },
-  });
+  const user = await UserModel.findById(id);
 
   if (!user) {
     return null;
   }
 
   // Remove password from response
-  const { password, ...userWithoutPassword } = user;
+  const userObj = user.toObject ? user.toObject() : user;
+  const { password, ...userWithoutPassword } = userObj;
   return userWithoutPassword as IUserResponse;
 };
 
@@ -54,33 +52,24 @@ const getAllUsers = async (query: any): Promise<{ data: IUserResponse[]; meta: a
   // Build query with search, filter, sort, pagination, and field selection
   queryBuilder.search(['name', 'email', 'username']).filter().sort().paginate().fields();
 
-  const queryOptions = queryBuilder.getQueryOptions();
+  const filter = queryBuilder.getFilter();
+  const sort = queryBuilder.getSort();
+  const pagination = queryBuilder.getPagination();
 
   // Execute query
-  const [users, total] = await Promise.all([
-    UserModel.findMany({
-      ...queryOptions,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        status: true,
-        avatar: true,
-        phone: true,
-        address: true,
-        dateOfBirth: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    }),
-    UserModel.count({ where: queryOptions.where }),
-  ]);
+  const result = await UserModel.findMany({
+    filter,
+    sort,
+    ...pagination,
+  });
 
-  const meta = queryBuilder.getPaginationMeta(total);
+  const meta = queryBuilder.getPaginationMeta(result.meta.total);
 
   return {
-    data: users as IUserResponse[],
+    data: result.data.map((user: any) => {
+      const { password, ...userWithoutPassword } = user.toObject ? user.toObject() : user;
+      return userWithoutPassword;
+    }) as IUserResponse[],
     meta,
   };
 };
@@ -88,9 +77,7 @@ const getAllUsers = async (query: any): Promise<{ data: IUserResponse[]; meta: a
 /** Update a User */
 const updateUser = async (id: string, data: IUserUpdate): Promise<IUserResponse | null> => {
   // Check if user exists
-  const existingUser = await UserModel.findUnique({
-    where: { id },
-  });
+  const existingUser = await UserModel.findById(id);
 
   if (!existingUser) {
     throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
@@ -101,79 +88,75 @@ const updateUser = async (id: string, data: IUserUpdate): Promise<IUserResponse 
     data.password = await hashInfo(data.password);
   }
 
-  const updatedUser = await UserModel.update({
-    where: { id },
-    data: data as any,
-  });
+  const updatedUser = await UserModel.update(id, data as any);
+
+  if (!updatedUser) {
+    return null;
+  }
 
   // Remove password from response
-  const { password, ...userWithoutPassword } = updatedUser;
+  const userObj = updatedUser.toObject ? updatedUser.toObject() : updatedUser;
+  const { password, ...userWithoutPassword } = userObj;
   return userWithoutPassword as IUserResponse;
 };
 
 /** Delete a User */
 const deleteUser = async (id: string): Promise<void> => {
   // Check if user exists
-  const existingUser = await UserModel.findUnique({
-    where: { id },
-  });
+  const existingUser = await UserModel.findById(id);
 
   if (!existingUser) {
     throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
   }
 
-  await UserModel.delete({
-    where: { id },
-  });
+  await UserModel.delete(id);
 };
 
 /** Change User Role */
 const changeUserRole = async (id: string, role: UserRole): Promise<IUserResponse | null> => {
   // Check if user exists
-  const existingUser = await UserModel.findUnique({
-    where: { id },
-  });
+  const existingUser = await UserModel.findById(id);
 
   if (!existingUser) {
     throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
   }
 
-  const updatedUser = await UserModel.update({
-    where: { id },
-    data: { role: role as any },
-  });
+  const updatedUser = await UserModel.update(id, { role: role as any });
+
+  if (!updatedUser) {
+    return null;
+  }
 
   // Remove password from response
-  const { password, ...userWithoutPassword } = updatedUser;
+  const userObj = updatedUser.toObject ? updatedUser.toObject() : updatedUser;
+  const { password, ...userWithoutPassword } = userObj;
   return userWithoutPassword as IUserResponse;
 };
 
 /** Change User Status */
 const changeUserStatus = async (id: string, status: UserStatus): Promise<IUserResponse | null> => {
   // Check if user exists
-  const existingUser = await UserModel.findUnique({
-    where: { id },
-  });
+  const existingUser = await UserModel.findById(id);
 
   if (!existingUser) {
     throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
   }
 
-  const updatedUser = await UserModel.update({
-    where: { id },
-    data: { status: status as any },
-  });
+  const updatedUser = await UserModel.update(id, { status: status as any });
+
+  if (!updatedUser) {
+    return null;
+  }
 
   // Remove password from response
-  const { password, ...userWithoutPassword } = updatedUser;
+  const userObj = updatedUser.toObject ? updatedUser.toObject() : updatedUser;
+  const { password, ...userWithoutPassword } = userObj;
   return userWithoutPassword as IUserResponse;
 };
 
 /** Get User Profile with related data */
 const getUserProfile = async (id: string): Promise<IUserProfile | null> => {
-  const user = await UserModel.findUnique({
-    where: { id },
-  });
+  const user = await UserModel.findById(id);
 
   if (!user) {
     return null;
@@ -182,45 +165,13 @@ const getUserProfile = async (id: string): Promise<IUserProfile | null> => {
   // Get related data separately
   const [teacherData, studentData, leaveRequests, attendanceRecords] = await Promise.all([
     // If user is a teacher, get their courses
-    prisma.teacher.findUnique({
-      where: { userId: id },
-      include: {
-        courses: {
-          select: {
-            id: true,
-            title: true,
-            code: true,
-          },
-        },
-      },
-    }),
+    TeacherModel.findByUserId(id).populate('courses'),
     // If user is a student, get their enrollments
-    prisma.student.findUnique({
-      where: { userId: id },
-      include: {
-        batch: true,
-        department: true,
-      },
-    }),
+    StudentModel.findByUserId(id).populate('batch').populate('department'),
     // Get leave requests
-    prisma.leaveRequest.findMany({
-      where: {
-        userId: id,
-        status: 'APPROVED',
-      },
-      select: {
-        id: true,
-      },
-    }),
+    LeaveRequestModel.model.find({ userId: id, status: 'APPROVED' }),
     // Get attendance records
-    prisma.attendance.findMany({
-      where: {
-        userId: id,
-      },
-      select: {
-        id: true,
-      },
-    }),
+    AttendanceModel.model.find({ userId: id }),
   ]);
 
   // Calculate statistics
@@ -229,8 +180,11 @@ const getUserProfile = async (id: string): Promise<IUserProfile | null> => {
   const totalLeaves = leaveRequests.length;
   const totalAttendances = attendanceRecords.length;
 
+  const userObj = user.toObject ? user.toObject() : user;
+  const { password, ...userWithoutPassword } = userObj;
+
   return {
-    ...user,
+    ...userWithoutPassword,
     totalCourses,
     totalAttendances,
     totalLeaves,
@@ -247,13 +201,18 @@ const getUserStats = async (): Promise<IUserStats> => {
     usersByRole,
   ] = await Promise.all([
     UserModel.count(),
-    UserModel.count({ where: { status: 'ACTIVE' } }),
-    UserModel.count({ where: { status: 'INACTIVE' } }),
-    UserModel.count({ where: { status: 'SUSPENDED' } }),
-    UserModel.groupBy({
-      by: ['role'],
-      _count: true,
-    }),
+    UserModel.count({ status: 'ACTIVE' }),
+    UserModel.count({ status: 'INACTIVE' }),
+    UserModel.count({ status: 'SUSPENDED' }),
+    // Use aggregation for groupBy
+    UserModel.aggregate([
+      {
+        $group: {
+          _id: '$role',
+          count: { $sum: 1 }
+        }
+      }
+    ]),
   ]);
 
   // Transform role counts
@@ -263,8 +222,8 @@ const getUserStats = async (): Promise<IUserStats> => {
     STUDENT: 0,
   };
 
-  usersByRole.forEach((item) => {
-    roleCounts[item.role] = item._count;
+  usersByRole.forEach((item: any) => {
+    roleCounts[item._id] = item.count;
   });
 
   return {
@@ -278,55 +237,34 @@ const getUserStats = async (): Promise<IUserStats> => {
 
 /** Get Users by Role */
 const getUsersByRole = async (role: UserRole): Promise<IUserResponse[]> => {
-  const users = await UserModel.findMany({
-    where: { role: role as any },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      status: true,
-      avatar: true,
-      phone: true,
-      createdAt: true,
-    },
-  });
+  const users = await UserModel.model.find({ role });
 
-  return users as IUserResponse[];
-};
+  return users.map((user: any) => {
+    const { password, ...userWithoutPassword } = user.toObject ? user.toObject() : user;
+    return userWithoutPassword;
+  }) as IUserResponse[];
+}
 
 /** Search Users */
 const searchUsers = async (query: string): Promise<IUserResponse[]> => {
-  const users = await UserModel.findMany({
-    where: {
-      OR: [
-        { name: { contains: query, mode: 'insensitive' } },
-        { email: { contains: query, mode: 'insensitive' } },
-        { username: { contains: query, mode: 'insensitive' } },
-      ],
-    },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      username: true,
-      role: true,
-      status: true,
-      avatar: true,
-      phone: true,
-      createdAt: true,
-    },
+  const users = await UserModel.model.find({
+    $or: [
+      { name: { $regex: query, $options: 'i' } },
+      { email: { $regex: query, $options: 'i' } },
+      { username: { $regex: query, $options: 'i' } },
+    ],
   });
 
-  return users as IUserResponse[];
-};
+  return users.map((user: any) => {
+    const { password, ...userWithoutPassword } = user.toObject ? user.toObject() : user;
+    return userWithoutPassword;
+  }) as IUserResponse[];
+}
 
 /** Update User Profile */
 const updateUserProfile = async (id: string, data: Partial<IUserCreate>): Promise<IUserResponse | null> => {
   // Check if user exists
-  const existingUser = await UserModel.findUnique({
-    where: { id },
-  });
+  const existingUser = await UserModel.findById(id);
 
   if (!existingUser) {
     throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
@@ -334,9 +272,7 @@ const updateUserProfile = async (id: string, data: Partial<IUserCreate>): Promis
 
   // If email is being updated, check if it's already taken
   if (data.email && data.email !== existingUser.email) {
-    const emailExists = await UserModel.findUnique({
-      where: { email: data.email },
-    });
+    const emailExists = await UserModel.findByEmail(data.email);
     if (emailExists) {
       throw new AppError(StatusCodes.CONFLICT, 'Email already exists');
     }
@@ -344,49 +280,42 @@ const updateUserProfile = async (id: string, data: Partial<IUserCreate>): Promis
 
   // If username is being updated, check if it's already taken
   if (data.username && data.username !== existingUser.username) {
-    const usernameExists = await UserModel.findUnique({
-      where: { username: data.username },
-    });
+    const usernameExists = await UserModel.findByUsername(data.username);
     if (usernameExists) {
       throw new AppError(StatusCodes.CONFLICT, 'Username already exists');
     }
   }
 
-  const updatedUser = await UserModel.update({
-    where: { id },
-    data: data as any,
-  });
+  const updatedUser = await UserModel.update(id, data as any);
+
+  if (!updatedUser) {
+    return null;
+  }
 
   // Remove password from response
-  const { password, ...userWithoutPassword } = updatedUser;
+  const userObj = updatedUser.toObject ? updatedUser.toObject() : updatedUser;
+  const { password, ...userWithoutPassword } = userObj;
   return userWithoutPassword as IUserResponse;
 };
 
 /** Soft Delete User (change status to inactive) */
 const softDeleteUser = async (id: string): Promise<void> => {
   // Check if user exists
-  const existingUser = await UserModel.findUnique({
-    where: { id },
-  });
+  const existingUser = await UserModel.findById(id);
 
   if (!existingUser) {
     throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
   }
 
-  await UserModel.update({
-    where: { id },
-    data: { status: 'INACTIVE' as any },
-  });
+  await UserModel.update(id, { status: 'INACTIVE' as any });
 };
 
 /** Bulk Update User Status */
 const bulkUpdateUserStatus = async (userIds: string[], status: UserStatus): Promise<void> => {
-  await UserModel.updateMany({
-    where: {
-      id: { in: userIds },
-    },
-    data: { status: status as any },
-  });
+  await UserModel.model.updateMany(
+    { _id: { $in: userIds } },
+    { status: status as any }
+  );
 };
 
 /** Get User Activity */

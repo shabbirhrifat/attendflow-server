@@ -7,13 +7,13 @@ import handleValidationError from '../errors/HandleValidationError';
 import handleZodError from '../errors/HandleZodError';
 import handleCastError from '../errors/HandleCastError';
 import handleDuplicateError from '../errors/HandleDuplicateError';
-import handlePrismaError from '../errors/HandlePrismaError';
+import handleDatabaseError from '../errors/HandleDatabaseError';
 import AppError from '../errors/AppError';
-import { Prisma } from '@prisma/client';
 
 /**
  * Global error handler for Express.js applications.
  * Handles errors that occur during the request-response cycle.
+ * Now supports MongoDB/Mongoose errors instead of Prisma.
  */
 const globalErrorHandler: ErrorRequestHandler = (
   error,
@@ -21,7 +21,7 @@ const globalErrorHandler: ErrorRequestHandler = (
   res: Response<TGenericErrorResponse>,
   next
 ) => {
-  console.error('Global Error Handler:', error);  
+  console.error('Global Error Handler:', error);
   let statusCode = 500;
   let message = 'Something Went Wrong';
   let errorSources: TErrorSources = [{ path: ' ', message: 'Something Went Wrong' }];
@@ -42,15 +42,15 @@ const globalErrorHandler: ErrorRequestHandler = (
     statusCode = simplifiedError.statusCode;
     message = simplifiedError.message;
     errorSources = simplifiedError.errorSources ?? errorSources;
-  } else if (error.code === 'P2002') {
-    // Prisma unique constraint error
+  } else if (error.code === 11000) {
+    // MongoDB duplicate key error
     const simplifiedError = handleDuplicateError(error);
     statusCode = simplifiedError.statusCode;
     message = simplifiedError.message;
     errorSources = simplifiedError.errorSources ?? errorSources;
-  } else if (error.code && error.code.startsWith('P')) {
-    // Other Prisma errors
-    const simplifiedError = handlePrismaError(error);
+  } else if (error.name === 'MongoError' || error.name === 'MongoServerError' || error.name === 'CastError' || error.name === 'ValidationError') {
+    // MongoDB/Mongoose errors
+    const simplifiedError = handleDatabaseError(error);
     statusCode = simplifiedError.statusCode;
     message = simplifiedError.message;
     errorSources = simplifiedError.errorSources ?? errorSources;
