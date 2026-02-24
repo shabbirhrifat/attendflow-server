@@ -545,11 +545,11 @@ export const DashboardService = {
         const params: any[] = [];
 
         if (startDate) {
-            whereClause += ` AND start_date >= $${params.length + 1}`;
+            whereClause += ` AND "startDate" >= $${params.length + 1}`;
             params.push(startDate);
         }
         if (endDate) {
-            whereClause += ` AND start_date <= $${params.length + 1}`;
+            whereClause += ` AND "startDate" <= $${params.length + 1}`;
             params.push(endDate);
         }
 
@@ -590,12 +590,12 @@ export const DashboardService = {
 
         // Get monthly trend
         const monthlyTrendQuery = `
-            SELECT 
-                TO_CHAR(start_date, 'YYYY-MM') as month,
+            SELECT
+                TO_CHAR("startDate", 'YYYY-MM') as month,
                 COUNT(*) as count
             FROM leave_requests l
             WHERE ${whereClause}
-            GROUP BY TO_CHAR(start_date, 'YYYY-MM')
+            GROUP BY TO_CHAR("startDate", 'YYYY-MM')
             ORDER BY month
         `;
 
