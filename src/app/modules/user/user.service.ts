@@ -19,7 +19,7 @@ const createUser = async (data: IUserCreate): Promise<IUserResponse> => {
   }
 
   // Hash password before storing
-  const hashedPassword = await hashInfo(data.password);
+  const hashedPassword = data.password ? await hashInfo(data.password) : undefined;
 
   const user = await UserModel.create({
     ...data,
@@ -223,7 +223,9 @@ const getUserStats = async (): Promise<IUserStats> => {
   };
 
   usersByRole.forEach((item: any) => {
-    roleCounts[item._id] = item.count;
+    if (item._id in roleCounts) {
+      roleCounts[item._id as UserRole] = item.count;
+    }
   });
 
   return {

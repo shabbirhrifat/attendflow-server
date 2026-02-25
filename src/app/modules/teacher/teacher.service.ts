@@ -158,7 +158,7 @@ export const getAllTeachers = async (filters: any): Promise<{ data: ITeacher[]; 
 
         const filter = queryBuilder.getFilter();
         const sort = queryBuilder.getSort();
-        const pagination = queryBuilder.getPagination();
+        const queryOptions = queryBuilder.getQueryOptions();
 
         // Build where clause
         const where: any = { ...filter };
@@ -176,8 +176,8 @@ export const getAllTeachers = async (filters: any): Promise<{ data: ITeacher[]; 
                 })
                 .populate('department', 'id name code')
                 .sort(sort)
-                .skip((pagination.page - 1) * pagination.limit)
-                .limit(pagination.limit),
+                .skip(queryOptions.skip)
+                .limit(queryOptions.limit),
             TeacherModel.model.countDocuments(where),
         ]);
 
@@ -330,7 +330,7 @@ export const getCourseAttendance = async (teacherId: string, courseId: string, f
             throw new AppError(StatusCodes.UNAUTHORIZED, 'Unauthorized to view attendance');
         }
 
-        // Get attendance records
+        // Get attendance records using repository method
         const attendance = await TeacherAttendanceModel.getCourseAttendance(courseId, filters);
 
         return attendance as unknown as IAttendanceRecord[];
@@ -354,7 +354,7 @@ export const getCourseAttendanceSummary = async (teacherId: string, courseId: st
         return {
             ...summary,
             courseTitle: '', // Get from course data
-        } as ICourseAttendanceSummary;
+        } as unknown as ICourseAttendanceSummary;
     } catch (error) {
         throw error;
     }
@@ -370,9 +370,9 @@ export const getPendingLeaveRequests = async (teacherId: string): Promise<ILeave
         }
 
         // Get pending leave requests
-        const leaveRequests = await TeacherLeaveModel.getPendingLeaves(teacherId);
+        const leaveRequests = await TeacherLeaveModel.getPendingLeaves();
 
-        return leaveRequests;
+        return leaveRequests as unknown as ILeaveRequest[];
     } catch (error) {
         throw error;
     }
@@ -624,25 +624,32 @@ export const getTeacherDashboard = async (teacherId: string): Promise<ITeacherDa
             throw new AppError(StatusCodes.NOT_FOUND, 'Teacher profile not found');
         }
 
-        // Get today's schedule
-        const todaySchedule = await ClassScheduleModel.model.getTodaySchedule(teacherId);
+        // Get today's schedule - use repository method
+        const todaySchedule = await ClassScheduleModel.getTodaySchedule(teacherId);
 
         // Get upcoming classes (next 7 days)
-        const upcomingClasses = await ClassScheduleModel.model.findByTeacherId(teacherId);
+        const upcomingClasses = await ClassScheduleModel.findByTeacherId(teacherId);
 
-        // Get recent attendance
-        const recentAttendance = await TeacherAttendanceModel.model.getCourseAttendance('', { limit: 10 });
+        // Get recent attendance - use AttendanceModel directly
+        const recentAttendance = await TeacherAttendanceModel.model.find({ teacherId })
+            .populate('user', 'id name email')
+            .sort({ date: -1 })
+            .limit(10)
+            .lean();
 
         // Get pending leave requests
-        const pendingLeaveRequests = await TeacherLeaveModel.model.getPendingLeaves();
+        const pendingLeaveRequests = await TeacherLeaveModel.getPendingLeaves();
 
-        // Get stats
-        const stats = await TeacherModel.model.getStats();
+        // Get stats - compute stats directly
+        const stats = {
+            totalTeachers: await TeacherModel.model.countDocuments(),
+            activeTeachers: await TeacherModel.model.countDocuments({ isActive: true }),
+        };
 
         // Create dashboard data
         const dashboard: ITeacherDashboard = {
             profile: teacher as unknown as ITeacherWithUser,
-            stats,
+            stats: stats as any,
             recentActivities: [],
             upcomingClasses: upcomingClasses as any[],
             pendingApprovals: pendingLeaveRequests as any[],
@@ -733,10 +740,10 @@ export const getUnassignedTeachers = async (): Promise<ITeacher[]> => {
     try {
         // Get teachers without department
         const unassignedTeachers = await TeacherModel.findMany({
-            departmentId: null
+            filter: { departmentId: null }
         });
 
-        return unassignedTeachers as unknown as ITeacher[];
+        return unassignedTeachers.data as unknown as ITeacher[];
     } catch (error) {
         throw error;
     }

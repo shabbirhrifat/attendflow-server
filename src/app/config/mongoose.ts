@@ -16,11 +16,6 @@ const mongooseConnectionSingleton = () => {
   const options = {
     // Auto-create indexes in development
     autoIndex: process.env.NODE_ENV !== 'production',
-    // Use new URL parser
-    // @ts-ignore - useNewUrlParser is deprecated but still used in some environments
-    useNewUrlParser: true,
-    // Use unified topology
-    useUnifiedTopology: true,
     // Server selection timeout
     serverSelectionTimeoutMS: 5000,
     // Socket timeout

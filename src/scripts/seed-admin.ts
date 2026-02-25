@@ -1,5 +1,6 @@
 import 'dotenv/config';
-import prisma from '../app/config/prisma';
+import mongoose from '../app/config/mongoose';
+import { User } from '../app/modules/user/user.schema';
 import bcrypt from 'bcrypt';
 
 async function main() {
@@ -9,24 +10,29 @@ async function main() {
 
     const hashedPassword = await bcrypt.hash(adminPassword, 12);
 
-    const admin = await prisma.user.upsert({
-        where: { email: adminEmail },
-        update: {
+    // Check if admin exists
+    const existingAdmin = await User.findOne({ email: adminEmail });
+
+    if (existingAdmin) {
+        // Update existing admin
+        await User.findByIdAndUpdate(existingAdmin._id, {
             password: hashedPassword,
             name: adminName,
             role: 'ADMIN',
             status: 'ACTIVE',
-        },
-        create: {
+        });
+        console.log('Admin user updated:', adminEmail);
+    } else {
+        // Create new admin
+        await User.create({
             email: adminEmail,
             password: hashedPassword,
             name: adminName,
             role: 'ADMIN',
             status: 'ACTIVE',
-        },
-    });
-
-    console.log('Admin user created/updated:', admin.email);
+        });
+        console.log('Admin user created:', adminEmail);
+    }
 }
 
 main()
@@ -35,5 +41,5 @@ main()
         process.exit(1);
     })
     .finally(async () => {
-        await prisma.$disconnect();
+        await mongoose.close();
     });

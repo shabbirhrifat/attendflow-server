@@ -464,10 +464,10 @@ export const getClassScheduleStats = async (): Promise<IClassScheduleStats> => {
                 acc[item._id] = item.count;
                 return acc;
             }, {}),
-            schedulesByTeacher: schedulesByTeacher.reduce((acc: Record<string, number>, item: any) => {
-                acc[item._id] = item.count;
-                return acc;
-            }, {}),
+            schedulesByTeacher: schedulesByTeacher.map((item: any) => ({
+                teacherId: item._id?.toString() || 'unknown',
+                count: item.count,
+            })),
         };
     } catch (error) {
         throw error;

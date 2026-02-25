@@ -15,8 +15,8 @@ const getSettings = catchAsync(async (req: Request, res: Response) => {
 });
 
 const updateSettings = catchAsync(async (req: Request, res: Response) => {
-    const { group = "GENERAL", ...settings } = req.body;
-    const result = await SettingsService.updateSettingsBulk(settings, group as string);
+    const settings = req.body;
+    const result = await SettingsService.updateSettingsBulk(settings);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         message: "Settings updated successfully",

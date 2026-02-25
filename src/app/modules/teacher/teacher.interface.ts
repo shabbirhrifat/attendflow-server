@@ -129,7 +129,7 @@ export interface ITeacherCreate {
     name: string;
     email: string;
     password?: string;
-    employeeId: string;
+    employeeId?: string; // Auto-generated if not provided
     departmentId?: string;
     designation?: string;
     specialization?: string;
@@ -188,17 +188,17 @@ export interface ITeacherResponse extends ITeacher {
 export interface IMarkAttendance {
     studentId: string;
     courseId: string;
-    date: Date;
+    date: Date | string;
     status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
-    checkIn?: Date;
-    checkOut?: Date;
+    checkIn?: Date | string;
+    checkOut?: Date | string;
     notes?: string;
 }
 
 // Bulk mark attendance
 export interface IBulkMarkAttendance {
     courseId: string;
-    date: Date;
+    date: Date | string;
     attendances: IMarkAttendance[];
 }
 
@@ -231,7 +231,7 @@ export interface ICreateClassSchedule {
     startTime: string;
     endTime: string;
     room?: string;
-    semester: number;
+    semester?: number;
 }
 
 // Leave approval
@@ -246,7 +246,7 @@ export interface ISubjectCreate {
     name: string;
     code: string;
     description?: string;
-    credits: number;
+    credits?: number;
     departmentId: string;
 }
 

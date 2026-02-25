@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { TeacherService } from './teacher.service';
 import { TeacherValidation } from './teacher.validation';
-import { ITeacherResponse } from './teacher.interface';
+import { ITeacherResponse, IMarkAttendance, ICreateClassSchedule } from './teacher.interface';
 import sendResponse, { sendPaginatedResponse } from '../../utils/sendResponse';
 import catchAsync from '../../utils/catchAsync';
 import { StatusCodes } from 'http-status-codes';
@@ -112,14 +112,14 @@ export const markAttendance = catchAsync(async (req: Request, res: Response) => 
 export const bulkMarkAttendance = catchAsync(async (req: Request, res: Response) => {
     const { teacherId } = req.params;
     const validatedData = TeacherValidation.bulkMarkAttendance.parse(req.body);
-    validatedData.date = validatedData.date;
     const result = await TeacherService.bulkMarkAttendance(teacherId, {
         ...validatedData,
+        date: new Date(validatedData.date),
         attendances: validatedData.attendances.map(attendance => ({
             ...attendance,
             checkIn: attendance.checkIn ? new Date(attendance.checkIn) : undefined,
             checkOut: attendance.checkOut ? new Date(attendance.checkOut) : undefined,
-        })),
+        })) as IMarkAttendance[],
     });
 
     sendResponse(res, {
@@ -197,7 +197,10 @@ export const getProcessedLeaves = catchAsync(async (req: Request, res: Response)
 export const createClassSchedule = catchAsync(async (req: Request, res: Response) => {
     const { teacherId } = req.params;
     const validatedData = TeacherValidation.createClassSchedule.parse(req.body);
-    const result = await TeacherService.createClassSchedule(teacherId, validatedData);
+    const result = await TeacherService.createClassSchedule(teacherId, {
+        ...validatedData,
+        teacherId,
+    } as ICreateClassSchedule);
 
     sendResponse(res, {
         statusCode: StatusCodes.CREATED,
@@ -221,6 +224,13 @@ export const getTeacherSchedulesByUserId = catchAsync(async (req: Request, res: 
     const { userId } = req.params;
     // Get teacher profile by user ID first, then get schedules
     const teacherProfile = await TeacherService.getTeacherProfileByUserId(userId);
+    if (!teacherProfile) {
+        return sendResponse(res, {
+            statusCode: StatusCodes.NOT_FOUND,
+            message: 'Teacher profile not found',
+            data: null,
+        });
+    }
     const result = await TeacherService.getTeacherSchedules(teacherProfile.id);
 
     sendResponse(res, {
@@ -334,6 +344,13 @@ export const getTeacherDashboardByUserId = catchAsync(async (req: Request, res: 
     const { userId } = req.params;
     // Get teacher profile by user ID first, then get dashboard
     const teacherProfile = await TeacherService.getTeacherProfileByUserId(userId);
+    if (!teacherProfile) {
+        return sendResponse(res, {
+            statusCode: StatusCodes.NOT_FOUND,
+            message: 'Teacher profile not found',
+            data: null,
+        });
+    }
     const result = await TeacherService.getTeacherDashboard(teacherProfile.id);
 
     sendResponse(res, {

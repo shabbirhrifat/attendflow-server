@@ -83,6 +83,13 @@ const getStudentAttendanceByUserId = catchAsync(async (req: Request, res: Respon
     const { userId } = req.params;
     // Get student profile by user ID first, then get attendance
     const studentProfile = await StudentService.getStudentByUserId(userId);
+    if (!studentProfile) {
+        return sendResponse(res, {
+            statusCode: StatusCodes.NOT_FOUND,
+            message: "Student profile not found",
+            data: null,
+        });
+    }
     const result = await StudentService.getStudentAttendance(studentProfile.id, req.query);
     sendPaginatedResponse(res, "attendances", result.data, result.meta, "Student attendance retrieved successfully");
 });
@@ -133,6 +140,13 @@ const getStudentDashboardByUserId = catchAsync(async (req: Request, res: Respons
     const { userId } = req.params;
     // Get student profile by user ID first, then get dashboard
     const studentProfile = await StudentService.getStudentByUserId(userId);
+    if (!studentProfile) {
+        return sendResponse(res, {
+            statusCode: StatusCodes.NOT_FOUND,
+            message: "Student profile not found",
+            data: null,
+        });
+    }
     const result = await StudentService.getStudentDashboard(studentProfile.id);
     sendResponse(res, {
         message: "Student dashboard data retrieved successfully",

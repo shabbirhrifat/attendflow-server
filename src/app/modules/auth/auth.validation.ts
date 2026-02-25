@@ -26,9 +26,7 @@ const adminRegistrationValidationSchema = z.object({
     username: z.string().min(3, 'Username must be at least 3 characters').optional(),
     name: z.string().min(2, 'Name must be at least 2 characters'),
     password: z.string().min(6, 'Password must be at least 6 characters'),
-    role: z.enum(['ADMIN', 'TEACHER'], {
-      errorMap: () => ({ message: 'Role must be either ADMIN or TEACHER for admin registration' }),
-    }),
+    role: z.enum(['ADMIN', 'TEACHER']).default('TEACHER'),
     phone: z.string().optional(),
     departmentId: z.string().optional(),
     employeeId: z.string().optional(),

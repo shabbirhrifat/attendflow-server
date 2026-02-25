@@ -158,12 +158,48 @@ class StudentRepository extends BaseRepository<any> {
   }
 }
 
+/**
+ * Batch Repository using MongoDB/Mongoose
+ */
+class BatchRepository extends BaseRepository<any> {
+  constructor() {
+    super(Batch);
+  }
+
+  async findActive() {
+    return await this.model.find({ isActive: true }).sort({ year: -1 });
+  }
+
+  async findByYear(year: number) {
+    return await this.model.findOne({ year });
+  }
+}
+
+/**
+ * Department Repository using MongoDB/Mongoose
+ */
+class DepartmentRepository extends BaseRepository<any> {
+  constructor() {
+    super(Department);
+  }
+
+  async findActive() {
+    return await this.model.find({ isActive: true }).sort({ name: 1 });
+  }
+
+  async findByCode(code: string) {
+    return await this.model.findOne({ code });
+  }
+}
+
 // Create singleton instances
 const studentRepository = new StudentRepository();
+const batchRepository = new BatchRepository();
+const departmentRepository = new DepartmentRepository();
 
 // Export both models and repository for backward compatibility
 export { Student, Batch, Department };
 export const StudentModel = studentRepository;
-export const BatchModel = BaseRepository.prototype.constructor.call(BaseRepository, Batch);
-export const DepartmentModel = BaseRepository.prototype.constructor.call(BaseRepository, Department);
+export const BatchModel = batchRepository;
+export const DepartmentModel = departmentRepository;
 export default studentRepository;

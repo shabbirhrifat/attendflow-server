@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(npx prisma generate:*)",
-      "Bash(npm run dev)",
-      "Bash(echo:*)"
-    ]
-  }
-}

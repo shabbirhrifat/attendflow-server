@@ -1,6 +1,8 @@
 import { Teacher } from './teacher.schema';
 import { ClassSchedule, Course } from '../course/course.schema';
-import { Subject } from '../organization/organization.schema';
+import { Subject, Department } from '../organization/organization.schema';
+import { Attendance } from '../attendance/attendance.schema';
+import { LeaveRequest } from '../leave/leave.schema';
 import BaseRepository from '../../repositories/BaseRepository';
 import mongoose from 'mongoose';
 
@@ -90,7 +92,7 @@ class TeacherRepository extends BaseRepository<any> {
       .filter(id => id != null);
 
     const departments = departmentIds.length > 0
-      ? await mongoose.model('Department').find({ _id: { $in: departmentIds } })
+      ? await Department.find({ _id: { $in: departmentIds } })
       : [];
 
     const teachersByDepartmentArray = teachersByDepartment.map(d => {
@@ -315,8 +317,8 @@ class SubjectRepository extends BaseRepository<any> {
  */
 class TeacherAttendanceRepository extends BaseRepository<any> {
   constructor() {
-    // Will use Attendance model from attendance module
-    super(mongoose.model('Attendance'));
+    // Use Attendance model from attendance module
+    super(Attendance);
   }
 
   /**
@@ -484,8 +486,8 @@ class TeacherAttendanceRepository extends BaseRepository<any> {
  */
 class TeacherLeaveRepository extends BaseRepository<any> {
   constructor() {
-    // Will use LeaveRequest model from leave module
-    super(mongoose.model('LeaveRequest'));
+    // Use LeaveRequest model from leave module
+    super(LeaveRequest);
   }
 
   /**

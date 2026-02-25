@@ -1,9 +1,17 @@
-import mongoose, { Model, Document, FilterQuery, UpdateQuery, ClientSession } from 'mongoose';
+import mongoose, { Model, Document, UpdateQuery, ClientSession, Types } from 'mongoose';
 
 /**
  * Generic BaseRepository for MongoDB/Mongoose
  * Provides common CRUD operations for all models
  */
+
+// Type alias for filter queries
+export type FilterQuery<T> = {
+  [P in keyof T]?: T[P] | RegExp | Types.ObjectId | any;
+} & {
+  _id?: Types.ObjectId | string;
+  [key: string]: any;
+};
 
 export interface PaginationOptions {
   page?: number;
@@ -18,7 +26,7 @@ export interface QueryOptions {
 }
 
 export interface FindManyOptions extends PaginationOptions, QueryOptions {
-  filter?: FilterQuery<Document>;
+  filter?: any;
 }
 
 export interface FindManyResult<T> {
@@ -54,9 +62,9 @@ export class BaseRepository<T extends Document> {
    */
   async createMany(data: Partial<T>[], session?: ClientSession): Promise<T[]> {
     if (session) {
-      return await this.model.insertMany(data, { session }) as T[];
+      return await this.model.insertMany(data, { session }) as unknown as T[];
     }
-    return await this.model.insertMany(data) as T[];
+    return await this.model.insertMany(data) as unknown as T[];
   }
 
   /**
@@ -67,18 +75,18 @@ export class BaseRepository<T extends Document> {
     options: QueryOptions = {},
     session?: ClientSession
   ): Promise<T | null> {
-    const query = this.model.findById(id);
+    let query: any = this.model.findById(id);
 
     if (options.populate) {
-      query.populate(options.populate);
+      query = query.populate(options.populate);
     }
 
     if (options.lean) {
-      query.lean();
+      query = query.lean();
     }
 
     if (session) {
-      query.session(session);
+      query = query.session(session);
     }
 
     return await query.exec();
@@ -88,22 +96,22 @@ export class BaseRepository<T extends Document> {
    * Find one document by filter
    */
   async findOne(
-    filter: FilterQuery<T>,
+    filter: any,
     options: QueryOptions = {},
     session?: ClientSession
   ): Promise<T | null> {
-    const query = this.model.findOne(filter);
+    let query: any = this.model.findOne(filter);
 
     if (options.populate) {
-      query.populate(options.populate);
+      query = query.populate(options.populate);
     }
 
     if (options.lean) {
-      query.lean();
+      query = query.lean();
     }
 
     if (session) {
-      query.session(session);
+      query = query.session(session);
     }
 
     return await query.exec();
@@ -126,21 +134,21 @@ export class BaseRepository<T extends Document> {
 
     const skip = ((page as number) - 1) * (limit as number);
 
-    const query = this.model.find(filter);
+    let query: any = this.model.find(filter);
 
     if (sort) {
-      query.sort(sort);
+      query = query.sort(sort);
     }
 
-    query.skip(skip).limit(limit as number);
-
     if (populate) {
-      query.populate(populate);
+      query = query.populate(populate);
     }
 
     if (lean) {
-      query.lean();
+      query = query.lean();
     }
+
+    query = query.skip(skip).limit(limit as number);
 
     const [data, total] = await Promise.all([
       query.exec(),
@@ -167,21 +175,21 @@ export class BaseRepository<T extends Document> {
     options: QueryOptions = {},
     session?: ClientSession
   ): Promise<T | null> {
-    const query = this.model.findByIdAndUpdate(id, data, {
+    let query: any = this.model.findByIdAndUpdate(id, data, {
       new: true,
       runValidators: true,
     });
 
     if (options.populate) {
-      query.populate(options.populate);
+      query = query.populate(options.populate);
     }
 
     if (options.lean) {
-      query.lean();
+      query = query.lean();
     }
 
     if (session) {
-      query.session(session);
+      query = query.session(session);
     }
 
     return await query.exec();
@@ -191,26 +199,26 @@ export class BaseRepository<T extends Document> {
    * Update one document by filter
    */
   async updateOne(
-    filter: FilterQuery<T>,
+    filter: any,
     data: UpdateQuery<T> | Partial<T>,
     options: QueryOptions = {},
     session?: ClientSession
   ): Promise<T | null> {
-    const query = this.model.findOneAndUpdate(filter, data, {
+    let query: any = this.model.findOneAndUpdate(filter, data, {
       new: true,
       runValidators: true,
     });
 
     if (options.populate) {
-      query.populate(options.populate);
+      query = query.populate(options.populate);
     }
 
     if (options.lean) {
-      query.lean();
+      query = query.lean();
     }
 
     if (session) {
-      query.session(session);
+      query = query.session(session);
     }
 
     return await query.exec();
@@ -248,13 +256,13 @@ export class BaseRepository<T extends Document> {
    * Delete one document by filter
    */
   async deleteOne(
-    filter: FilterQuery<T>,
+    filter: any,
     session?: ClientSession
   ): Promise<T | null> {
-    const query = this.model.findOneAndDelete(filter);
+    let query: any = this.model.findOneAndDelete(filter);
 
     if (session) {
-      query.session(session);
+      query = query.session(session);
     }
 
     return await query.exec();
@@ -264,7 +272,7 @@ export class BaseRepository<T extends Document> {
    * Delete many documents by filter
    */
   async deleteMany(
-    filter: FilterQuery<T>,
+    filter: any,
     session?: ClientSession
   ): Promise<{ deletedCount: number }> {
     const result = session
@@ -277,14 +285,14 @@ export class BaseRepository<T extends Document> {
   /**
    * Count documents by filter
    */
-  async count(filter: FilterQuery<T> = {}): Promise<number> {
+  async count(filter: any = {}): Promise<number> {
     return await this.model.countDocuments(filter);
   }
 
   /**
    * Check if any document exists matching the filter
    */
-  async exists(filter: FilterQuery<T>): Promise<boolean> {
+  async exists(filter: any): Promise<boolean> {
     return await this.model.exists(filter) !== null;
   }
 

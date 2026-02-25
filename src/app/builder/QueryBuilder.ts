@@ -140,6 +140,8 @@ class QueryBuilder {
       sort: this.getSort(),
       skip: this.paginationOptions.skip,
       limit: this.paginationOptions.limit,
+      page: Number(this.query.page) || 1,
+      search: this.query.searchTerm as string | undefined,
       projection: this.projectFields,
     };
   }
