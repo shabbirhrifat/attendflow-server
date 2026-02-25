@@ -39,7 +39,6 @@ const authenticate = catchAsync(async (req: Request, res: Response, next: NextFu
 const authorize = (...roles: string[]) => {
     return catchAsync(async (req: Request, res: Response, next: NextFunction) => {
         // First check if user is authenticated
-        console.log(req.user);
         if (!req.user) {
             throw new AppError(StatusCodes.UNAUTHORIZED, 'Authentication required');
         }
@@ -79,7 +78,7 @@ const authorizeOwnerOrAdmin = (resourceUserIdParam: string = 'userId') => {
 
         // Check if user is the owner of the resource or has admin privileges
         const isOwner = currentUserId === resourceUserId;
-        const isAdmin = ['SUPER_ADMIN', 'ADMIN'].includes(role);
+        const isAdmin = role === 'ADMIN';
 
         if (!isOwner && !isAdmin) {
             throw new AppError(StatusCodes.FORBIDDEN, 'Access denied: You can only access your own resources or need admin privileges');
@@ -118,17 +117,14 @@ const verifyRefreshToken = catchAsync(async (req: Request, res: Response, next: 
 /**
  * Middleware to check if the user is a teacher or admin
  */
-const isTeacherOrAdmin = authorize('TEACHER', 'ADMIN', 'SUPER_ADMIN');
+const isTeacherOrAdmin = authorize('TEACHER', 'ADMIN');
 
 /**
  * Middleware to check if the user is an admin
  */
-const isAdmin = authorize('ADMIN', 'SUPER_ADMIN');
+const isAdmin = authorize('ADMIN');
 
-/**
- * Middleware to check if the user is a super admin
- */
-const isSuperAdmin = authorize('SUPER_ADMIN');
+// SUPER_ADMIN role removed — use isAdmin instead
 
 /**
  * Middleware to check if the user is a student
@@ -147,7 +143,6 @@ export const AuthMiddleware = {
     verifyRefreshToken,
     isTeacherOrAdmin,
     isAdmin,
-    isSuperAdmin,
     isStudent,
     isTeacher,
 };
@@ -160,6 +155,5 @@ export { authorizeOwnerOrAdmin };
 export { verifyRefreshToken };
 export { isTeacherOrAdmin };
 export { isAdmin };
-export { isSuperAdmin };
 export { isStudent };
 export { isTeacher };

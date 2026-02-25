@@ -34,10 +34,9 @@ const loginAdmin = catchAsync(async (req: Request, res: Response) => {
         throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
     }
 
-    // Verify role - Allow ADMIN, SUPER_ADMIN, and TEACHER to login
+    // Verify role - Allow ADMIN and TEACHER to login
     if (
         (user.role as any) !== 'ADMIN' &&
-        (user.role as any) !== 'SUPER_ADMIN' &&
         (user.role as any) !== 'TEACHER'
     ) {
         throw new AppError(StatusCodes.FORBIDDEN, 'Access denied: Not an administrator or teacher');

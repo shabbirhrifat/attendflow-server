@@ -1,6 +1,6 @@
 /**
  * Shared enum types for Mongoose models
- * These are the same enums used in Prisma schema
+ * Single source of truth for all role/status enums
  */
 
 // User roles enum

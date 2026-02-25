@@ -1,10 +1,13 @@
 import { Router } from "express";
 import { ImportController } from "./import.controller";
-import AuthorizeRequest from "../../middlewares/auth";
+import { AuthMiddleware } from "../auth/auth.middleware";
 import validateRequest from "../../middlewares/validateRequest";
 import { ImportValidation } from "./import.validation";
 
 const router = Router();
+
+// All import routes require authentication
+router.use(AuthMiddleware.authenticate);
 
 /**
  * @description validate import data before execution
@@ -17,7 +20,7 @@ const router = Router();
  */
 router.post(
     "/validate",
-    AuthorizeRequest("ADMIN"),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(ImportValidation.validateImport),
     ImportController.validateImport
 );
@@ -25,7 +28,7 @@ router.post(
 /**
  * @description execute import data after validation
  * @param {string} path - /api/import/execute
- * @param {function} middleware - ['AuthorizeRequest("ADMIN")', 'validateRequest(ImportValidation.executeImport)']
+ * @param {function} middleware - ['AuthMiddleware.authorize("ADMIN")', 'validateRequest(ImportValidation.executeImport)']
  * @param {function} controller - ['executeImport']
  * @returns {object} - router
  * @access private - ['ADMIN']
@@ -33,7 +36,7 @@ router.post(
  */
 router.post(
     "/execute",
-    AuthorizeRequest("ADMIN"),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(ImportValidation.executeImport),
     ImportController.executeImport
 );

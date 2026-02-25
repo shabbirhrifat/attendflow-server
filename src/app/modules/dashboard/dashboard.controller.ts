@@ -4,7 +4,7 @@ import DashboardService from './dashboard.service';
 import sendResponse from '../../utils/sendResponse';
 import catchAsync from '../../utils/catchAsync';
 import validateRequest from '../../middlewares/validateRequest';
-import AuthorizeRequest from '../../middlewares/auth';
+import { AuthMiddleware } from '../auth/auth.middleware';
 import { DashboardValidation } from './dashboard.validation';
 
 // Dashboard Overview Controller
@@ -183,38 +183,38 @@ export const getAttendanceReport = catchAsync(async (req: Request, res: Response
 export const DashboardController = {
     // Dashboard Overview
     getDashboardOverview: [
-        AuthorizeRequest('ADMIN'),
+        AuthMiddleware.authorize('ADMIN'),
         validateRequest(DashboardValidation.dashboardQuery),
         getDashboardOverview,
     ],
 
     // Statistics
     getClassLevelStats: [
-        AuthorizeRequest('ADMIN'),
+        AuthMiddleware.authorize('ADMIN'),
         validateRequest(DashboardValidation.classLevelStatsQuery),
         getClassLevelStats,
     ],
 
     getSubjectLevelStats: [
-        AuthorizeRequest('ADMIN'),
+        AuthMiddleware.authorize('ADMIN'),
         validateRequest(DashboardValidation.subjectLevelStatsQuery),
         getSubjectLevelStats,
     ],
 
     getTeacherPerformanceData: [
-        AuthorizeRequest('ADMIN'),
+        AuthMiddleware.authorize('ADMIN'),
         validateRequest(DashboardValidation.teacherPerformanceQuery),
         getTeacherPerformanceData,
     ],
 
     getLowAttendanceAlerts: [
-        AuthorizeRequest('ADMIN'),
+        AuthMiddleware.authorize('ADMIN'),
         validateRequest(DashboardValidation.lowAttendanceAlertsQuery),
         getLowAttendanceAlerts,
     ],
 
     getAttendanceReport: [
-        AuthorizeRequest('ADMIN'),
+        AuthMiddleware.authorize('ADMIN'),
         validateRequest(DashboardValidation.attendanceReportQuery),
         getAttendanceReport,
     ],

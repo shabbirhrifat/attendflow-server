@@ -43,7 +43,6 @@ export const createCourse = async (data: ICourseCreate): Promise<ICourse> => {
         // Check if batch exists
         if (data.batchId) {
             const batchExists = await BatchModel.model.findById(data.batchId);
-            console.log('Batch exists:', batchExists);
             if (!batchExists) {
                 throw new AppError(StatusCodes.BAD_REQUEST, 'Batch not found');
             }

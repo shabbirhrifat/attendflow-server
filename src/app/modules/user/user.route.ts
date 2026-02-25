@@ -2,9 +2,12 @@ import { Router } from "express";
 import { userControllers } from "./user.controller";
 import validateRequest from "../../middlewares/validateRequest";
 import { userValidation } from "./user.validation";
-import AuthorizeRequest from "../../middlewares/auth";
+import { AuthMiddleware } from "../auth/auth.middleware";
 
 const router = Router();
+
+// All user routes require authentication
+router.use(AuthMiddleware.authenticate);
 
 /**
  * @description create a new user
@@ -93,7 +96,7 @@ router.delete(
  */
 router.patch(
   "/:id/role",
-  AuthorizeRequest('ADMIN'),
+  AuthMiddleware.authorize('ADMIN'),
   validateRequest(userValidation.userIdParamSchema),
   validateRequest(userValidation.changeUserRoleSchema),
   userControllers.changeUserRole
@@ -102,7 +105,7 @@ router.patch(
 /**
  * @description change user status
  * @param {string} path - /api/user/:id/status
- * @param {function} middleware - ['AuthorizeRequest(ADMIN)', 'validateRequest(userValidation.userIdParamSchema)', 'validateRequest(userValidation.changeUserStatusSchema)']
+ * @param {function} middleware - ['AuthMiddleware.authorize("ADMIN")', 'validateRequest(userValidation.userIdParamSchema)', 'validateRequest(userValidation.changeUserStatusSchema)']
  * @param {function} controller - ['changeUserStatus']
  * @returns {object} - router
  * @access private - ['ADMIN']
@@ -110,7 +113,7 @@ router.patch(
  */
 router.patch(
   "/:id/status",
-  AuthorizeRequest('ADMIN'),
+  AuthMiddleware.authorize('ADMIN'),
   validateRequest(userValidation.userIdParamSchema),
   validateRequest(userValidation.changeUserStatusSchema),
   userControllers.changeUserStatus
@@ -142,7 +145,7 @@ router.get(
  */
 router.get(
   "/stats",
-  AuthorizeRequest('ADMIN'),
+  AuthMiddleware.authorize('ADMIN'),
   userControllers.getUserStats
 );
 
@@ -203,7 +206,7 @@ router.patch(
  */
 router.patch(
   "/:id/deactivate",
-  AuthorizeRequest('ADMIN'),
+  AuthMiddleware.authorize('ADMIN'),
   validateRequest(userValidation.userIdParamSchema),
   userControllers.softDeleteUser
 );
@@ -211,7 +214,7 @@ router.patch(
 /**
  * @description bulk update user status
  * @param {string} path - /api/user/bulk/status
- * @param {function} middleware - ['AuthorizeRequest(ADMIN)', 'validateRequest(userValidation.bulkUpdateUserStatusSchema)']
+ * @param {function} middleware - ['AuthMiddleware.authorize("ADMIN")', 'validateRequest(userValidation.bulkUpdateUserStatusSchema)']
  * @param {function} controller - ['bulkUpdateUserStatus']
  * @returns {object} - router
  * @access private - ['ADMIN']
@@ -219,7 +222,7 @@ router.patch(
  */
 router.patch(
   "/bulk/status",
-  AuthorizeRequest('ADMIN'),
+  AuthMiddleware.authorize('ADMIN'),
   validateRequest(userValidation.bulkUpdateUserStatusSchema),
   userControllers.bulkUpdateUserStatus
 );

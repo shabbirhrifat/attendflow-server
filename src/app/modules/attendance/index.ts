@@ -7,4 +7,3 @@ export { attendanceRoutes } from './attendance.route';
 export { AttendanceSessionModel } from './attendanceSession.model';
 export * from './attendanceSession.service';
 export * from './attendanceSession.controller';
-export { default as attendanceSessionRoutes } from './attendanceSession.route';

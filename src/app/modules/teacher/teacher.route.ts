@@ -2,9 +2,12 @@ import { Router } from 'express';
 import { TeacherController } from './teacher.controller';
 import { TeacherValidation } from './teacher.validation';
 import validateRequest from '../../middlewares/validateRequest';
-import AuthorizeRequest from '../../middlewares/auth';
+import { AuthMiddleware } from '../auth/auth.middleware';
 
 const router = Router();
+
+// All teacher routes require authentication
+router.use(AuthMiddleware.authenticate);
 
 /**
  * @description create a new teacher profile
@@ -17,7 +20,7 @@ const router = Router();
  */
 router.post(
     '/',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.createTeacher),
     TeacherController.createTeacherProfile
 );
@@ -33,7 +36,7 @@ router.post(
  */
 router.get(
     '/stats',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     TeacherController.getTeacherStats
 );
 
@@ -48,7 +51,7 @@ router.get(
  */
 router.get(
     '/:teacherId/statistics',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     TeacherController.getTeacherStatistics
 );
@@ -64,7 +67,7 @@ router.get(
  */
 router.get(
     '/:teacherId',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     TeacherController.getTeacherProfile
 );
@@ -80,7 +83,7 @@ router.get(
  */
 router.put(
     '/:teacherId',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     validateRequest(TeacherValidation.updateTeacher),
     TeacherController.updateTeacherProfile
@@ -97,7 +100,7 @@ router.put(
  */
 router.delete(
     '/:teacherId',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     TeacherController.deleteTeacherProfile
 );
@@ -113,7 +116,7 @@ router.delete(
  */
 router.get(
     '/',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherFilters),
     TeacherController.getAllTeachers
 );
@@ -129,7 +132,7 @@ router.get(
  */
 router.post(
     '/:teacherId/attendance/mark',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     validateRequest(TeacherValidation.markAttendance),
     TeacherController.markAttendance
@@ -146,7 +149,7 @@ router.post(
  */
 router.post(
     '/:teacherId/attendance/bulk',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     validateRequest(TeacherValidation.bulkMarkAttendance),
     TeacherController.bulkMarkAttendance
@@ -163,7 +166,7 @@ router.post(
  */
 router.get(
     '/:teacherId/courses/:courseId/attendance',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     validateRequest(TeacherValidation.courseIdParam),
     TeacherController.getCourseAttendance
@@ -180,7 +183,7 @@ router.get(
  */
 router.get(
     '/:teacherId/courses/:courseId/attendance/summary',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     validateRequest(TeacherValidation.courseIdParam),
     TeacherController.getCourseAttendanceSummary
@@ -197,7 +200,7 @@ router.get(
  */
 router.get(
     '/:teacherId/leaves/pending',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     TeacherController.getPendingLeaveRequests
 );
@@ -213,7 +216,7 @@ router.get(
  */
 router.put(
     '/:teacherId/leaves/:leaveId/approve',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     validateRequest(TeacherValidation.leaveIdParam),
     validateRequest(TeacherValidation.leaveApproval),
@@ -231,7 +234,7 @@ router.put(
  */
 router.get(
     '/:teacherId/leaves/processed',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     TeacherController.getProcessedLeaves
 );
@@ -247,7 +250,7 @@ router.get(
  */
 router.post(
     '/:teacherId/schedules',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     validateRequest(TeacherValidation.createClassSchedule),
     TeacherController.createClassSchedule
@@ -264,7 +267,7 @@ router.post(
  */
 router.get(
     '/:teacherId/schedules',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     TeacherController.getTeacherSchedules
 );
@@ -280,7 +283,7 @@ router.get(
  */
 router.get(
     '/:teacherId/schedules/today',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     TeacherController.getTodaySchedule
 );
@@ -296,7 +299,7 @@ router.get(
  */
 router.put(
     '/:teacherId/schedules/:scheduleId',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     validateRequest(TeacherValidation.scheduleIdParam),
     validateRequest(TeacherValidation.createClassSchedule),
@@ -314,7 +317,7 @@ router.put(
  */
 router.delete(
     '/:teacherId/schedules/:scheduleId',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     validateRequest(TeacherValidation.scheduleIdParam),
     TeacherController.deleteClassSchedule
@@ -331,7 +334,7 @@ router.delete(
  */
 router.post(
     '/subjects',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.createSubject),
     TeacherController.createSubject
 );
@@ -347,7 +350,7 @@ router.post(
  */
 router.get(
     '/subjects',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.subjectFilters),
     TeacherController.getAllSubjects
 );
@@ -363,7 +366,7 @@ router.get(
  */
 router.get(
     '/subjects/:subjectId',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.subjectIdParam),
     TeacherController.getSubjectById
 );
@@ -379,7 +382,7 @@ router.get(
  */
 router.put(
     '/subjects/:subjectId',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.subjectIdParam),
     validateRequest(TeacherValidation.updateSubject),
     TeacherController.updateSubject
@@ -396,7 +399,7 @@ router.put(
  */
 router.delete(
     '/subjects/:subjectId',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.subjectIdParam),
     TeacherController.deleteSubject
 );
@@ -412,7 +415,7 @@ router.delete(
  */
 router.get(
     '/:teacherId/dashboard',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     TeacherController.getTeacherDashboard
 );
@@ -428,7 +431,7 @@ router.get(
  */
 router.get(
     '/user/:userId/profile',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.userIdParam),
     TeacherController.getTeacherProfileByUserId
 );
@@ -444,7 +447,7 @@ router.get(
  */
 router.get(
     '/user/:userId/dashboard',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.userIdParam),
     TeacherController.getTeacherDashboardByUserId
 );
@@ -460,7 +463,7 @@ router.get(
  */
 router.get(
     '/user/:userId/schedules',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(TeacherValidation.userIdParam),
     TeacherController.getTeacherSchedulesByUserId
 );
@@ -476,7 +479,7 @@ router.get(
  */
 router.post(
     '/:teacherId/assign-department',
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     validateRequest(TeacherValidation.teacherDepartmentAssignment),
     TeacherController.assignTeacherToDepartment
@@ -493,7 +496,7 @@ router.post(
  */
 router.post(
     '/:teacherId/remove-department',
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(TeacherValidation.teacherIdParam),
     TeacherController.removeTeacherFromDepartment
 );
@@ -509,7 +512,7 @@ router.post(
  */
 router.post(
     '/bulk-assign-department',
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(TeacherValidation.bulkTeacherAssignment),
     TeacherController.bulkAssignTeachersToDepartment
 );
@@ -525,7 +528,7 @@ router.post(
  */
 router.get(
     '/unassigned',
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     TeacherController.getUnassignedTeachers
 );
 

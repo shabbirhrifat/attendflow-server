@@ -1,7 +1,7 @@
-// Local type definitions for User module
+import type { UserRole, UserStatus } from '../../types/enums';
 
-export type UserRole = 'ADMIN' | 'TEACHER' | 'STUDENT';
-export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING';
+// Re-export for backward compatibility with consumers importing from this module
+export type { UserRole, UserStatus };
 
 // User type (local definition)
 export interface IUser {

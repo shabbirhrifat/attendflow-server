@@ -1,6 +1,5 @@
-// Define types locally since they're not yet exported from @prisma/client
+// Entity type definitions for Organization module
 
-// Define related types
 export interface User {
     id: string;
     email: string;

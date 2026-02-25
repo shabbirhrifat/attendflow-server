@@ -3,37 +3,40 @@ import { attendanceControllers } from "./attendance.controller";
 import { AttendanceSessionController } from "./attendanceSession.controller";
 import validateRequest from "../../middlewares/validateRequest";
 import { attendanceValidation } from "./attendance.validation";
-import AuthorizeRequest from "../../middlewares/auth";
+import { AuthMiddleware } from "../auth/auth.middleware";
 
 const router = Router();
+
+// All attendance routes require authentication
+router.use(AuthMiddleware.authenticate);
 
 /**
  * @description get attendance dashboard data
  * @param {string} path - /api/attendance/dashboard
- * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN, SUPER_ADMIN)']
+ * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN, ADMIN)']
  * @param {function} controller - ['getAttendanceDashboard']
  * @returns {object} - router
- * @access private - ['TEACHER', 'ADMIN', 'SUPER_ADMIN']
+ * @access private - ['TEACHER', 'ADMIN', 'ADMIN']
  * @method GET
  */
 router.get(
     "/dashboard",
-    AuthorizeRequest('TEACHER', 'ADMIN', 'SUPER_ADMIN'),
+AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     attendanceControllers.getAttendanceDashboard
 );
 
 /**
  * @description bulk mark attendance for multiple students
  * @param {string} path - /api/attendance/bulk-mark
- * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN, SUPER_ADMIN)', 'validateRequest(attendanceValidation.bulkAttendanceSchema)']
+ * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN, ADMIN)', 'validateRequest(attendanceValidation.bulkAttendanceSchema)']
  * @param {function} controller - ['bulkMarkAttendance']
  * @returns {object} - router
- * @access private - ['TEACHER', 'ADMIN', 'SUPER_ADMIN']
+ * @access private - ['TEACHER', 'ADMIN', 'ADMIN']
  * @method POST
  */
 router.post(
     "/bulk-mark",
-    AuthorizeRequest('TEACHER', 'ADMIN', 'SUPER_ADMIN'),
+AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(attendanceValidation.bulkAttendanceSchema),
     attendanceControllers.bulkMarkAttendance
 );
@@ -41,15 +44,15 @@ router.post(
 /**
  * @description create attendance session
  * @param {string} path - /api/attendance/session
- * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN, SUPER_ADMIN)', 'validateRequest(attendanceValidation.createAttendanceSessionSchema)']
+ * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN, ADMIN)', 'validateRequest(attendanceValidation.createAttendanceSessionSchema)']
  * @param {function} controller - ['createAttendanceSession']
  * @returns {object} - router
- * @access private - ['TEACHER', 'ADMIN', 'SUPER_ADMIN']
+ * @access private - ['TEACHER', 'ADMIN', 'ADMIN']
  * @method POST
  */
 router.post(
     "/session",
-    AuthorizeRequest('TEACHER', 'ADMIN', 'SUPER_ADMIN'),
+AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(attendanceValidation.createAttendanceSessionSchema),
     attendanceControllers.createAttendanceSession
 );
@@ -58,7 +61,7 @@ router.post(
 // POST /api/v1/attendance/sessions - Create attendance session
 router.post(
     "/sessions",
-    AuthorizeRequest('TEACHER', 'ADMIN', 'SUPER_ADMIN'),
+AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(attendanceValidation.createAttendanceSessionSchema),
     AttendanceSessionController.createAttendanceSession
 );
@@ -109,15 +112,15 @@ router.get(
 /**
  * @description record attendance for a student
  * @param {string} path - /api/attendance
- * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN, SUPER_ADMIN)', 'validateRequest(attendanceValidation.createAttendanceSchema)']
+ * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN, ADMIN)', 'validateRequest(attendanceValidation.createAttendanceSchema)']
  * @param {function} controller - ['recordAttendance']
  * @returns {object} - router
- * @access private - ['TEACHER', 'ADMIN', 'SUPER_ADMIN']
+ * @access private - ['TEACHER', 'ADMIN', 'ADMIN']
  * @method POST
  */
 router.post(
     "/",
-    AuthorizeRequest('TEACHER', 'ADMIN', 'SUPER_ADMIN'),
+AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(attendanceValidation.createAttendanceSchema),
     attendanceControllers.recordAttendance
 );
@@ -140,15 +143,15 @@ router.get(
 /**
  * @description update attendance record
  * @param {string} path - /api/attendance/:id
- * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN, SUPER_ADMIN)', 'validateRequest(attendanceValidation.idParamSchema)', 'validateRequest(attendanceValidation.updateAttendanceSchema)']
+ * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN, ADMIN)', 'validateRequest(attendanceValidation.idParamSchema)', 'validateRequest(attendanceValidation.updateAttendanceSchema)']
  * @param {function} controller - ['updateAttendance']
  * @returns {object} - router
- * @access private - ['TEACHER', 'ADMIN', 'SUPER_ADMIN']
+ * @access private - ['TEACHER', 'ADMIN', 'ADMIN']
  * @method PATCH
  */
 router.patch(
     "/:id",
-    AuthorizeRequest('TEACHER', 'ADMIN', 'SUPER_ADMIN'),
+AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(attendanceValidation.idParamSchema),
     validateRequest(attendanceValidation.updateAttendanceSchema),
     attendanceControllers.updateAttendance

@@ -160,7 +160,7 @@ const loginUser = async (loginData: LoginUser): Promise<AuthResponse> => {
   }
 
   // Prevent admin login through regular route
-  if (['ADMIN', 'SUPER_ADMIN'].includes(user.role as any)) {
+  if (user.role === 'ADMIN') {
     throw new AppError(StatusCodes.FORBIDDEN, 'Administrative users must use the dedicated admin login portal');
   }
 

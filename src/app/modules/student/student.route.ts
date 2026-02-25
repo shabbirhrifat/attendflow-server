@@ -2,9 +2,12 @@ import { Router } from "express";
 import { studentControllers } from "./student.controller";
 import validateRequest from "../../middlewares/validateRequest";
 import { studentValidation } from "./student.validation";
-import AuthorizeRequest from "../../middlewares/auth";
+import { AuthMiddleware } from "../auth/auth.middleware";
 
 const router = Router();
+
+// All student routes require authentication
+router.use(AuthMiddleware.authenticate);
 
 /**
  * @description create a new student profile
@@ -17,7 +20,7 @@ const router = Router();
  */
 router.post(
     "/create-student",
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(studentValidation.createStudentSchema),
     studentControllers.createStudent
 );
@@ -25,7 +28,7 @@ router.post(
 /**
  * @description get student statistics
  * @param {string} path - /api/student/stats
- * @param {function} middleware - ['AuthorizeRequest(ADMIN)']
+ * @param {function} middleware - ['AuthMiddleware.authorize("ADMIN")']
  * @param {function} controller - ['getStudentStats']
  * @returns {object} - router
  * @access private - ['ADMIN']
@@ -33,7 +36,7 @@ router.post(
  */
 router.get(
     "/stats",
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     studentControllers.getStudentStats
 );
 
@@ -93,7 +96,7 @@ router.get(
  */
 router.patch(
     "/:id",
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(studentValidation.studentIdParamSchema),
     validateRequest(studentValidation.updateStudentSchema),
     studentControllers.updateStudent
@@ -102,7 +105,7 @@ router.patch(
 /**
  * @description delete a student
  * @param {string} path - /api/student/:id
- * @param {function} middleware - ['AuthorizeRequest(ADMIN)', 'validateRequest(studentValidation.studentIdParamSchema)']
+ * @param {function} middleware - ['AuthMiddleware.authorize("ADMIN")', 'validateRequest(studentValidation.studentIdParamSchema)']
  * @param {function} controller - ['deleteStudent']
  * @returns {object} - router
  * @access private - ['ADMIN']
@@ -110,7 +113,7 @@ router.patch(
  */
 router.delete(
     "/:id",
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(studentValidation.studentIdParamSchema),
     studentControllers.deleteStudent
 );

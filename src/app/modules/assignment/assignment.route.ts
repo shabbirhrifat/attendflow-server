@@ -9,9 +9,12 @@ import express from 'express';
 import { AssignmentController } from './assignment.controller';
 import { AssignmentValidation } from './assignment.validation';
 import validateRequest from '../../middlewares/validateRequest';
-import AuthorizeRequest from '../../middlewares/auth';
+import { AuthMiddleware } from '../auth/auth.middleware';
 
 const router = express.Router();
+
+// All assignment routes require authentication
+router.use(AuthMiddleware.authenticate);
 
 // ==================== TEACHER ASSIGNMENT ROUTES ====================
 
@@ -22,7 +25,7 @@ const router = express.Router();
  */
 router.post(
     '/teacher-to-department',
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(AssignmentValidation.assignTeacherToDepartment),
     AssignmentController.assignTeacherToDepartment
 );
@@ -34,7 +37,7 @@ router.post(
  */
 router.delete(
     '/teacher-from-department/:teacherId',
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     AssignmentController.unassignTeacherFromDepartment
 );
 
@@ -47,7 +50,7 @@ router.delete(
  */
 router.post(
     '/student-to-batch',
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(AssignmentValidation.assignStudentToBatch),
     AssignmentController.assignStudentToBatch
 );
@@ -59,7 +62,7 @@ router.post(
  */
 router.post(
     '/student-to-department',
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(AssignmentValidation.assignStudentToDepartment),
     AssignmentController.assignStudentToDepartment
 );
@@ -73,7 +76,7 @@ router.post(
  */
 router.post(
     '/teacher-to-course',
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(AssignmentValidation.assignTeacherToCourse),
     AssignmentController.assignTeacherToCourse
 );
@@ -85,7 +88,7 @@ router.post(
  */
 router.post(
     '/course-to-department',
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(AssignmentValidation.assignCourseToDepartment),
     AssignmentController.assignCourseToDepartment
 );
@@ -97,7 +100,7 @@ router.post(
  */
 router.post(
     '/course-to-batch',
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(AssignmentValidation.assignCourseToBatch),
     AssignmentController.assignCourseToBatch
 );
@@ -109,7 +112,7 @@ router.post(
  */
 router.post(
     '/student-to-course',
-    AuthorizeRequest('ADMIN', 'TEACHER'),
+    AuthMiddleware.authorize('ADMIN', 'TEACHER'),
     validateRequest(AssignmentValidation.assignStudentToCourse),
     AssignmentController.assignStudentToCourse
 );
@@ -121,7 +124,7 @@ router.post(
  */
 router.delete(
     '/student-from-course/:studentId/:courseId',
-    AuthorizeRequest('ADMIN', 'TEACHER'),
+    AuthMiddleware.authorize('ADMIN', 'TEACHER'),
     AssignmentController.unenrollStudentFromCourse
 );
 
@@ -134,7 +137,7 @@ router.delete(
  */
 router.post(
     '/department-head',
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(AssignmentValidation.assignDepartmentHead),
     AssignmentController.assignDepartmentHead
 );

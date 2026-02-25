@@ -2,9 +2,12 @@ import { Router } from "express";
 import { OrganizationController } from "./organization.controller";
 import validateRequest from "../../middlewares/validateRequest";
 import { OrganizationValidation } from "./organization.validation";
-import AuthorizeRequest from "../../middlewares/auth";
+import { AuthMiddleware } from "../auth/auth.middleware";
 
 const router = Router();
+
+// All organization routes require authentication
+router.use(AuthMiddleware.authenticate);
 
 /**
  * @description create a new department
@@ -17,7 +20,7 @@ const router = Router();
  */
 router.post(
     "/departments",
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(OrganizationValidation.createDepartment),
     OrganizationController.createDepartment
 );
@@ -77,7 +80,7 @@ router.get(
  */
 router.patch(
     "/departments/:departmentId",
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(OrganizationValidation.departmentIdParam),
     validateRequest(OrganizationValidation.updateDepartment),
     OrganizationController.updateDepartment
@@ -94,7 +97,7 @@ router.patch(
  */
 router.delete(
     "/departments/:departmentId",
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(OrganizationValidation.departmentIdParam),
     OrganizationController.deleteDepartment
 );
@@ -110,7 +113,7 @@ router.delete(
  */
 router.post(
     "/semesters",
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(OrganizationValidation.createSemester),
     OrganizationController.createSemester
 );
@@ -169,7 +172,7 @@ router.get(
  */
 router.patch(
     "/semesters/:semesterId",
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(OrganizationValidation.semesterIdParam),
     validateRequest(OrganizationValidation.updateSemester),
     OrganizationController.updateSemester
@@ -186,7 +189,7 @@ router.patch(
  */
 router.delete(
     "/semesters/:semesterId",
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(OrganizationValidation.semesterIdParam),
     OrganizationController.deleteSemester
 );
@@ -202,7 +205,7 @@ router.delete(
  */
 router.post(
     "/batches",
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(OrganizationValidation.createBatch),
     OrganizationController.createBatch
 );
@@ -261,7 +264,7 @@ router.get(
  */
 router.patch(
     "/batches/:batchId",
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(OrganizationValidation.batchIdParam),
     validateRequest(OrganizationValidation.updateBatch),
     OrganizationController.updateBatch
@@ -278,7 +281,7 @@ router.patch(
  */
 router.delete(
     "/batches/:batchId",
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(OrganizationValidation.batchIdParam),
     OrganizationController.deleteBatch
 );
@@ -294,7 +297,7 @@ router.delete(
  */
 router.post(
     "/subjects",
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(OrganizationValidation.createSubject),
     OrganizationController.createSubject
 );
@@ -353,7 +356,7 @@ router.get(
  */
 router.patch(
     "/subjects/:subjectId",
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(OrganizationValidation.subjectIdParam),
     validateRequest(OrganizationValidation.updateSubject),
     OrganizationController.updateSubject
@@ -370,7 +373,7 @@ router.patch(
  */
 router.delete(
     "/subjects/:subjectId",
-    AuthorizeRequest('ADMIN'),
+    AuthMiddleware.authorize('ADMIN'),
     validateRequest(OrganizationValidation.subjectIdParam),
     OrganizationController.deleteSubject
 );

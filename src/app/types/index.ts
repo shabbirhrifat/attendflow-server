@@ -3,27 +3,19 @@
  * Export commonly used types to avoid circular dependencies
  */
 
-// User types
-export type UserRole = 'ADMIN' | 'TEACHER' | 'STUDENT';
-export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING';
+// Import from single source of truth
+import type { UserRole, UserStatus } from './enums';
 
-// User role values for use in runtime checks
-export const UserRole = {
-  ADMIN: 'ADMIN' as UserRole,
-  TEACHER: 'TEACHER' as UserRole,
-  STUDENT: 'STUDENT' as UserRole,
-};
-
-// Attendance types
-export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
-
-// Leave types
-export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
-export type LeaveType = 'SICK' | 'PERSONAL' | 'VACATION' | 'ACADEMIC' | 'EMERGENCY';
-
-// Notification types
-export type NotificationType = 'IN_APP' | 'EMAIL' | 'BOTH';
-export type EmailStatus = 'PENDING' | 'SENT' | 'FAILED';
+// Re-export all enums from single source of truth
+export {
+  type UserRole,
+  type UserStatus,
+  type AttendanceStatus,
+  type LeaveStatus,
+  type LeaveType,
+  type NotificationType,
+  type EmailStatus,
+} from './enums';
 
 // Base user interface
 export interface IUser {

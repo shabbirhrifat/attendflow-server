@@ -2,9 +2,12 @@ import { Router } from 'express';
 import { leaveControllers } from './leave.controller';
 import { leaveValidation } from './leave.validation';
 import validateRequest from '../../middlewares/validateRequest';
-import AuthorizeRequest from '../../middlewares/auth';
+import { AuthMiddleware } from '../auth/auth.middleware';
 
 const router = Router();
+
+// All leave routes require authentication
+router.use(AuthMiddleware.authenticate);
 
 /**
  * @description get leave statistics
@@ -17,14 +20,14 @@ const router = Router();
  */
 router.get(
     '/stats',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     leaveControllers.getLeaveStats
 );
 
 /**
  * @description get leave dashboard data
  * @param {string} path - /api/leave/dashboard
- * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)']
+ * @param {function} middleware - ['AuthMiddleware.authorize("TEACHER", "ADMIN")']
  * @param {function} controller - ['getLeaveDashboard']
  * @returns {object} - router
  * @access private - ['TEACHER', 'ADMIN']
@@ -32,14 +35,13 @@ router.get(
  */
 router.get(
     '/dashboard',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     leaveControllers.getLeaveDashboard
 );
 
 /**
  * @description get my leave requests
  * @param {string} path - /api/leave/my-leaves
- * @param {function} middleware - ['AuthorizeRequest()']
  * @param {function} controller - ['getMyLeaves']
  * @returns {object} - router
  * @access private
@@ -47,14 +49,13 @@ router.get(
  */
 router.get(
     '/my-leaves',
-    AuthorizeRequest(),
     leaveControllers.getMyLeaves
 );
 
 /**
  * @description get pending leave requests
  * @param {string} path - /api/leave/pending
- * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)']
+ * @param {function} middleware - ['AuthMiddleware.authorize("TEACHER", "ADMIN")']
  * @param {function} controller - ['getPendingLeaves']
  * @returns {object} - router
  * @access private - ['TEACHER', 'ADMIN']
@@ -62,14 +63,14 @@ router.get(
  */
 router.get(
     '/pending',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     leaveControllers.getPendingLeaves
 );
 
 /**
  * @description submit a new leave request
  * @param {string} path - /api/leave/
- * @param {function} middleware - ['AuthorizeRequest()', 'validateRequest(leaveValidation.createLeaveSchema)']
+ * @param {function} middleware - ['validateRequest(leaveValidation.createLeaveSchema)']
  * @param {function} controller - ['submitLeave']
  * @returns {object} - router
  * @access private
@@ -77,7 +78,6 @@ router.get(
  */
 router.post(
     '/',
-    AuthorizeRequest(),
     validateRequest(leaveValidation.createLeaveSchema),
     leaveControllers.submitLeave
 );
@@ -85,7 +85,7 @@ router.post(
 /**
  * @description get all leave requests with filters
  * @param {string} path - /api/leave/
- * @param {function} middleware - ['AuthorizeRequest()', 'validateRequest(leaveValidation.leaveFiltersSchema)']
+ * @param {function} middleware - ['validateRequest(leaveValidation.leaveFiltersSchema)']
  * @param {function} controller - ['getLeaves']
  * @returns {object} - router
  * @access private
@@ -93,7 +93,6 @@ router.post(
  */
 router.get(
     '/',
-    AuthorizeRequest(),
     validateRequest(leaveValidation.leaveFiltersSchema),
     leaveControllers.getLeaves
 );
@@ -101,7 +100,7 @@ router.get(
 /**
  * @description get leave by ID
  * @param {string} path - /api/leave/:id
- * @param {function} middleware - ['AuthorizeRequest()', 'validateRequest(leaveValidation.idParamSchema)']
+ * @param {function} middleware - ['validateRequest(leaveValidation.idParamSchema)']
  * @param {function} controller - ['getLeaveById']
  * @returns {object} - router
  * @access private
@@ -109,7 +108,6 @@ router.get(
  */
 router.get(
     '/:id',
-    AuthorizeRequest(),
     validateRequest(leaveValidation.idParamSchema),
     leaveControllers.getLeaveById
 );
@@ -117,7 +115,7 @@ router.get(
 /**
  * @description update leave request
  * @param {string} path - /api/leave/:id
- * @param {function} middleware - ['AuthorizeRequest()', 'validateRequest(leaveValidation.idParamSchema)', 'validateRequest(leaveValidation.updateLeaveSchema)']
+ * @param {function} middleware - ['validateRequest(leaveValidation.idParamSchema)', 'validateRequest(leaveValidation.updateLeaveSchema)']
  * @param {function} controller - ['updateLeave']
  * @returns {object} - router
  * @access private
@@ -125,7 +123,6 @@ router.get(
  */
 router.patch(
     '/:id',
-    AuthorizeRequest(),
     validateRequest(leaveValidation.idParamSchema),
     validateRequest(leaveValidation.updateLeaveSchema),
     leaveControllers.updateLeave
@@ -134,7 +131,7 @@ router.patch(
 /**
  * @description delete leave request
  * @param {string} path - /api/leave/:id
- * @param {function} middleware - ['AuthorizeRequest()', 'validateRequest(leaveValidation.idParamSchema)']
+ * @param {function} middleware - ['validateRequest(leaveValidation.idParamSchema)']
  * @param {function} controller - ['deleteLeave']
  * @returns {object} - router
  * @access private
@@ -142,7 +139,6 @@ router.patch(
  */
 router.delete(
     '/:id',
-    AuthorizeRequest(),
     validateRequest(leaveValidation.idParamSchema),
     leaveControllers.deleteLeave
 );
@@ -150,7 +146,7 @@ router.delete(
 /**
  * @description approve leave request
  * @param {string} path - /api/leave/:id/approve
- * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)', 'validateRequest(leaveValidation.idParamSchema)', 'validateRequest(leaveValidation.approveRejectLeaveSchema)']
+ * @param {function} middleware - ['AuthMiddleware.authorize("TEACHER", "ADMIN")', 'validateRequest(leaveValidation.idParamSchema)', 'validateRequest(leaveValidation.approveRejectLeaveSchema)']
  * @param {function} controller - ['approveLeave']
  * @returns {object} - router
  * @access private - ['TEACHER', 'ADMIN']
@@ -158,7 +154,7 @@ router.delete(
  */
 router.patch(
     '/:id/approve',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(leaveValidation.idParamSchema),
     validateRequest(leaveValidation.approveRejectLeaveSchema),
     leaveControllers.approveLeave
@@ -167,7 +163,7 @@ router.patch(
 /**
  * @description reject leave request
  * @param {string} path - /api/leave/:id/reject
- * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)', 'validateRequest(leaveValidation.idParamSchema)', 'validateRequest(leaveValidation.approveRejectLeaveSchema)']
+ * @param {function} middleware - ['AuthMiddleware.authorize("TEACHER", "ADMIN")', 'validateRequest(leaveValidation.idParamSchema)', 'validateRequest(leaveValidation.approveRejectLeaveSchema)']
  * @param {function} controller - ['rejectLeave']
  * @returns {object} - router
  * @access private - ['TEACHER', 'ADMIN']
@@ -175,7 +171,7 @@ router.patch(
  */
 router.patch(
     '/:id/reject',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     validateRequest(leaveValidation.idParamSchema),
     validateRequest(leaveValidation.approveRejectLeaveSchema),
     leaveControllers.rejectLeave
@@ -184,7 +180,7 @@ router.patch(
 /**
  * @description bulk approve leave requests
  * @param {string} path - /api/leave/bulk-approve
- * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)']
+ * @param {function} middleware - ['AuthMiddleware.authorize("TEACHER", "ADMIN")']
  * @param {function} controller - ['bulkApproveLeaves']
  * @returns {object} - router
  * @access private - ['TEACHER', 'ADMIN']
@@ -192,14 +188,14 @@ router.patch(
  */
 router.post(
     '/bulk-approve',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     leaveControllers.bulkApproveLeaves
 );
 
 /**
  * @description bulk reject leave requests
  * @param {string} path - /api/leave/bulk-reject
- * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN)']
+ * @param {function} middleware - ['AuthMiddleware.authorize("TEACHER", "ADMIN")']
  * @param {function} controller - ['bulkRejectLeaves']
  * @returns {object} - router
  * @access private - ['TEACHER', 'ADMIN']
@@ -207,7 +203,7 @@ router.post(
  */
 router.post(
     '/bulk-reject',
-    AuthorizeRequest('TEACHER', 'ADMIN'),
+    AuthMiddleware.authorize('TEACHER', 'ADMIN'),
     leaveControllers.bulkRejectLeaves
 );
 

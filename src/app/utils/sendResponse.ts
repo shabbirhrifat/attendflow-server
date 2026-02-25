@@ -20,14 +20,9 @@ interface TPaginatedResponse<T> {
 }
 
 const sendResponse = <T>(res: Response, data: TResponse<T>) => {
-  console.log({
-    statusCode: data?.statusCode || 200,
-    success: true,
-    message: data.message,
-    data: data.data,
-  });
-  res.status(200).json({
-    statusCode: data?.statusCode || 200,
+  const statusCode = data?.statusCode || 200;
+  res.status(statusCode).json({
+    statusCode,
     success: true,
     message: data.message,
     data: data.data,
@@ -57,7 +52,6 @@ const sendPaginatedResponse = <T>(
     },
   };
 
-  console.log(response);
   res.status(statusCode || 200).json(response);
 };
 

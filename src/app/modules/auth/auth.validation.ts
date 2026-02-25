@@ -7,7 +7,7 @@ const userRegistrationValidationSchema = z.object({
     username: z.string().min(3, 'Username must be at least 3 characters').optional(),
     name: z.string().min(2, 'Name must be at least 2 characters'),
     password: z.string().min(6, 'Password must be at least 6 characters'),
-    role: z.enum(['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT']).optional().default('STUDENT'),
+    role: z.enum(['ADMIN', 'TEACHER', 'STUDENT']).optional().default('STUDENT'),
     phone: z.string().optional(),
     departmentId: z.string().optional(),
     employeeId: z.string().optional(),
