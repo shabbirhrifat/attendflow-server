@@ -73,12 +73,13 @@ export const createCourse = async (data: ICourseCreate): Promise<ICourse> => {
             }
         }
 
-        const course = await CourseModel.create(data);
-        return await CourseModel.findById(course.id)
-            .populate('teacherProfile')
+        const course = await CourseModel.model.create(data);
+        return await CourseModel.model.findById(course._id)
+            .populate('teacher', 'id name email')
             .populate('batch')
             .populate('department')
-            .populate('subject') as ICourse;
+            .populate('subject')
+            .populate('semesterInfo') as ICourse;
     } catch (error) {
         throw error;
     }
@@ -86,33 +87,27 @@ export const createCourse = async (data: ICourseCreate): Promise<ICourse> => {
 
 export const getCourseById = async (id: string): Promise<ICourseWithRelations | null> => {
     try {
-        const course = await CourseModel.findById(id)
-            .populate({
-                path: 'teacherProfile',
-                populate: {
-                    path: 'user',
-                    select: 'id name email'
-                }
-            })
-            .populate('teacherProfile')
+        const course = await CourseModel.model.findById(id)
+            .populate('teacher', 'id name email')
             .populate('batch')
             .populate('department')
             .populate('subject')
             .populate('semesterInfo')
-            .populate({
-                path: 'enrollments',
-                populate: {
-                    path: 'student',
-                    select: 'id name email'
-                }
-            })
-            .exec();
+            .lean();
 
         if (!course) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Course not found');
         }
 
-        return course as unknown as ICourseWithRelations;
+        // Get enrollments separately
+        const enrollments = await CourseEnrollmentModel.model.find({ courseId: id })
+            .populate('student', 'id name email')
+            .lean();
+
+        return {
+            ...course,
+            enrollments,
+        } as unknown as ICourseWithRelations;
     } catch (error) {
         throw error;
     }
@@ -139,13 +134,14 @@ export const updateCourse = async (id: string, data: ICourseUpdate): Promise<ICo
             }
         }
 
-        await CourseModel.update(id, data);
+        await CourseModel.model.findByIdAndUpdate(id, data);
 
-        return await CourseModel.findById(id)
-            .populate('teacherProfile')
+        return await CourseModel.model.findById(id)
+            .populate('teacher', 'id name email')
             .populate('batch')
             .populate('department')
-            .populate('subject') as ICourse;
+            .populate('subject')
+            .populate('semesterInfo') as ICourse;
     } catch (error) {
         throw error;
     }
@@ -238,10 +234,10 @@ export const getCourseStats = async (): Promise<ICourseStats> => {
             totalCourses,
             activeCourses,
             inactiveCourses,
-            coursesByDepartment: coursesByDepartment.reduce((acc: Record<string, number>, item: any) => {
-                acc[item._id] = item.count;
-                return acc;
-            }, {}),
+            coursesByDepartment: coursesByDepartment.map((item: any) => ({
+                departmentId: item._id?.toString() || 'unknown',
+                count: item.count,
+            })),
             coursesByBatch: coursesByBatch.reduce((acc: Record<string, number>, item: any) => {
                 acc[item._id] = item.count;
                 return acc;
@@ -269,8 +265,8 @@ export const enrollStudentInCourse = async (data: ICourseEnrollmentCreate): Prom
             throw new AppError(StatusCodes.CONFLICT, 'Student is already enrolled in this course');
         }
 
-        const enrollment = await CourseEnrollmentModel.create(data);
-        return await CourseEnrollmentModel.findById(enrollment.id)
+        const enrollment = await CourseEnrollmentModel.model.create(data);
+        return await CourseEnrollmentModel.model.findById(enrollment._id)
             .populate('student', 'id name email')
             .populate('course') as ICourseEnrollment;
     } catch (error) {
@@ -280,29 +276,10 @@ export const enrollStudentInCourse = async (data: ICourseEnrollmentCreate): Prom
 
 export const getCourseEnrollmentById = async (id: string): Promise<ICourseEnrollmentWithRelations | null> => {
     try {
-        const enrollment = await CourseEnrollmentModel.findById(id)
-            .populate({
-                path: 'student',
-                populate: {
-                    path: 'studentProfile'
-                }
-            })
-            .populate({
-                path: 'course',
-                populate: [
-                    {
-                        path: 'teacherProfile',
-                        populate: {
-                            path: 'user',
-                            select: 'id name email'
-                        }
-                    },
-                    'batch',
-                    'department',
-                    'subject'
-                ]
-            })
-            .exec();
+        const enrollment = await CourseEnrollmentModel.model.findById(id)
+            .populate('student', 'id name email')
+            .populate('course')
+            .lean();
 
         if (!enrollment) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Course enrollment not found');
@@ -378,8 +355,8 @@ export const getCourseEnrollmentStats = async (): Promise<ICourseEnrollmentStats
 // Class Schedule services
 export const createClassSchedule = async (data: IClassScheduleCreate): Promise<IClassSchedule> => {
     try {
-        const schedule = await ClassScheduleModel.create(data);
-        return await ClassScheduleModel.findById(schedule.id)
+        const schedule = await ClassScheduleModel.model.create(data);
+        return await ClassScheduleModel.model.findById(schedule._id)
             .populate('teacher', 'id name email')
             .populate('course')
             .populate('batch') as IClassSchedule;
@@ -390,14 +367,11 @@ export const createClassSchedule = async (data: IClassScheduleCreate): Promise<I
 
 export const getClassScheduleById = async (id: string): Promise<IClassScheduleWithRelations | null> => {
     try {
-        const schedule = await ClassScheduleModel.findById(id)
+        const schedule = await ClassScheduleModel.model.findById(id)
             .populate('teacher', 'id name email')
-            .populate({
-                path: 'course',
-                populate: ['batch', 'department', 'subject']
-            })
+            .populate('course')
             .populate('batch')
-            .exec();
+            .lean();
 
         if (!schedule) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Class schedule not found');
@@ -418,12 +392,13 @@ export const updateClassSchedule = async (id: string, data: IClassScheduleUpdate
             throw new AppError(StatusCodes.NOT_FOUND, 'Class schedule not found');
         }
 
-        await ClassScheduleModel.update(id, data);
+        await ClassScheduleModel.model.findByIdAndUpdate(id, data);
 
-        return await ClassScheduleModel.findById(id)
+        return await ClassScheduleModel.model.findById(id)
             .populate('teacher', 'id name email')
             .populate('course')
-            .populate('batch') as IClassSchedule;
+            .populate('batch')
+            .lean() as IClassSchedule;
     } catch (error) {
         throw error;
     }

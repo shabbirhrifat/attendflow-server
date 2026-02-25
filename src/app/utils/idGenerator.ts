@@ -1,5 +1,6 @@
-import prisma from '../config/prisma';
 import { v4 as uuidv4 } from 'uuid';
+import { StudentModel } from '../modules/student/student.model';
+import { TeacherModel } from '../modules/teacher/teacher.model';
 
 /**
  * Generate a unique student ID with format AFS### (AttendFlow Student)
@@ -7,25 +8,18 @@ import { v4 as uuidv4 } from 'uuid';
  */
 export const generateStudentId = async (): Promise<string> => {
   const prefix = 'AFS';
-  
+
   try {
     // Get the highest existing student ID number
-    const lastStudent = await prisma.student.findFirst({
-      where: {
-        studentId: {
-          startsWith: prefix
-        }
-      },
-      orderBy: {
-        studentId: 'desc'
-      },
-      select: {
-        studentId: true
-      }
-    });
+    const lastStudent = await StudentModel.model.findOne({
+      studentId: { $regex: `^${prefix}` }
+    })
+    .sort({ studentId: -1 })
+    .select('studentId')
+    .lean();
 
     let nextNumber = 1;
-    
+
     if (lastStudent) {
       // Extract the numeric part from the last ID
       const lastNumber = parseInt(lastStudent.studentId.replace(prefix, ''));
@@ -36,10 +30,10 @@ export const generateStudentId = async (): Promise<string> => {
 
     // Generate new ID with zero padding (3 digits)
     const newStudentId = `${prefix}${nextNumber.toString().padStart(3, '0')}`;
-    
+
     // Double-check if the generated ID already exists (race condition protection)
-    const existingStudent = await prisma.student.findUnique({
-      where: { studentId: newStudentId }
+    const existingStudent = await StudentModel.model.findOne({
+      studentId: newStudentId
     });
 
     if (existingStudent) {
@@ -60,25 +54,18 @@ export const generateStudentId = async (): Promise<string> => {
  */
 export const generateTeacherId = async (): Promise<string> => {
   const prefix = 'AFT';
-  
+
   try {
     // Get the highest existing teacher ID number
-    const lastTeacher = await prisma.teacher.findFirst({
-      where: {
-        employeeId: {
-          startsWith: prefix
-        }
-      },
-      orderBy: {
-        employeeId: 'desc'
-      },
-      select: {
-        employeeId: true
-      }
-    });
+    const lastTeacher = await TeacherModel.model.findOne({
+      employeeId: { $regex: `^${prefix}` }
+    })
+    .sort({ employeeId: -1 })
+    .select('employeeId')
+    .lean();
 
     let nextNumber = 1;
-    
+
     if (lastTeacher) {
       // Extract the numeric part from the last ID
       const lastNumber = parseInt(lastTeacher.employeeId.replace(prefix, ''));
@@ -89,10 +76,10 @@ export const generateTeacherId = async (): Promise<string> => {
 
     // Generate new ID with zero padding (3 digits)
     const newTeacherId = `${prefix}${nextNumber.toString().padStart(3, '0')}`;
-    
+
     // Double-check if the generated ID already exists (race condition protection)
-    const existingTeacher = await prisma.teacher.findUnique({
-      where: { employeeId: newTeacherId }
+    const existingTeacher = await TeacherModel.model.findOne({
+      employeeId: newTeacherId
     });
 
     if (existingTeacher) {
@@ -114,26 +101,19 @@ export const generateTeacherId = async (): Promise<string> => {
  * @returns Promise<string> - Generated student ID
  */
 export const generateCustomStudentId = async (
-  prefix: string = 'AFS', 
+  prefix: string = 'AFS',
   padding: number = 3
 ): Promise<string> => {
   try {
-    const lastStudent = await prisma.student.findFirst({
-      where: {
-        studentId: {
-          startsWith: prefix
-        }
-      },
-      orderBy: {
-        studentId: 'desc'
-      },
-      select: {
-        studentId: true
-      }
-    });
+    const lastStudent = await StudentModel.model.findOne({
+      studentId: { $regex: `^${prefix}` }
+    })
+    .sort({ studentId: -1 })
+    .select('studentId')
+    .lean();
 
     let nextNumber = 1;
-    
+
     if (lastStudent) {
       const lastNumber = parseInt(lastStudent.studentId.replace(prefix, ''));
       if (!isNaN(lastNumber)) {
@@ -142,9 +122,9 @@ export const generateCustomStudentId = async (
     }
 
     const newStudentId = `${prefix}${nextNumber.toString().padStart(padding, '0')}`;
-    
-    const existingStudent = await prisma.student.findUnique({
-      where: { studentId: newStudentId }
+
+    const existingStudent = await StudentModel.model.findOne({
+      studentId: newStudentId
     });
 
     if (existingStudent) {
@@ -165,26 +145,19 @@ export const generateCustomStudentId = async (
  * @returns Promise<string> - Generated teacher ID
  */
 export const generateCustomTeacherId = async (
-  prefix: string = 'AFT', 
+  prefix: string = 'AFT',
   padding: number = 3
 ): Promise<string> => {
   try {
-    const lastTeacher = await prisma.teacher.findFirst({
-      where: {
-        employeeId: {
-          startsWith: prefix
-        }
-      },
-      orderBy: {
-        employeeId: 'desc'
-      },
-      select: {
-        employeeId: true
-      }
-    });
+    const lastTeacher = await TeacherModel.model.findOne({
+      employeeId: { $regex: `^${prefix}` }
+    })
+    .sort({ employeeId: -1 })
+    .select('employeeId')
+    .lean();
 
     let nextNumber = 1;
-    
+
     if (lastTeacher) {
       const lastNumber = parseInt(lastTeacher.employeeId.replace(prefix, ''));
       if (!isNaN(lastNumber)) {
@@ -193,9 +166,9 @@ export const generateCustomTeacherId = async (
     }
 
     const newTeacherId = `${prefix}${nextNumber.toString().padStart(padding, '0')}`;
-    
-    const existingTeacher = await prisma.teacher.findUnique({
-      where: { employeeId: newTeacherId }
+
+    const existingTeacher = await TeacherModel.model.findOne({
+      employeeId: newTeacherId
     });
 
     if (existingTeacher) {
@@ -218,7 +191,7 @@ export const generateCustomTeacherId = async (
 export const generateUserId = (role: 'STUDENT' | 'TEACHER', name?: string): string => {
   const timestamp = Date.now().toString(36); // Convert to base36 for shorter ID
   const randomSuffix = Math.random().toString(36).substring(2, 8); // Random string for uniqueness
-  
+
   let prefix = 'usr';
   if (role === 'STUDENT') {
     prefix = 'stu';

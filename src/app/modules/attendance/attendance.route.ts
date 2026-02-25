@@ -39,37 +39,6 @@ router.post(
 );
 
 /**
- * @description create QR code for attendance check-in
- * @param {string} path - /api/attendance/qr-code
- * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN, SUPER_ADMIN)', 'validateRequest(attendanceValidation.createQRCodeSchema)']
- * @param {function} controller - ['createQRCode']
- * @returns {object} - router
- * @access private - ['TEACHER', 'ADMIN', 'SUPER_ADMIN']
- * @method POST
- */
-router.post(
-    "/qr-code",
-    AuthorizeRequest('TEACHER', 'ADMIN', 'SUPER_ADMIN'),
-    validateRequest(attendanceValidation.createQRCodeSchema),
-    attendanceControllers.createQRCode
-);
-
-/**
- * @description process QR code check-in
- * @param {string} path - /api/attendance/qr-checkin
- * @param {function} middleware - ['validateRequest(attendanceValidation.qrCodeCheckInSchema)']
- * @param {function} controller - ['processQRCodeCheckIn']
- * @returns {object} - router
- * @access private
- * @method POST
- */
-router.post(
-    "/qr-checkin",
-    validateRequest(attendanceValidation.qrCodeCheckInSchema),
-    attendanceControllers.processQRCodeCheckIn
-);
-
-/**
  * @description create attendance session
  * @param {string} path - /api/attendance/session
  * @param {function} middleware - ['AuthorizeRequest(TEACHER, ADMIN, SUPER_ADMIN)', 'validateRequest(attendanceValidation.createAttendanceSessionSchema)']

@@ -20,8 +20,8 @@ export const bulkCreate = catchAsync(async (req: Request, res: Response) => {
   if (!entityType || !data || !Array.isArray(data)) {
     return sendResponse(res, {
       statusCode: StatusCodes.BAD_REQUEST,
-      success: false,
       message: 'Invalid request: entityType and data array are required',
+      data: null,
     });
   }
 
@@ -43,8 +43,8 @@ export const bulkUpdate = catchAsync(async (req: Request, res: Response) => {
   if (!entityType || !ids || !Array.isArray(ids) || !data) {
     return sendResponse(res, {
       statusCode: StatusCodes.BAD_REQUEST,
-      success: false,
       message: 'Invalid request: entityType, ids array, and data are required',
+      data: null,
     });
   }
 
@@ -66,8 +66,8 @@ export const bulkDelete = catchAsync(async (req: Request, res: Response) => {
   if (!entityType || !ids || !Array.isArray(ids)) {
     return sendResponse(res, {
       statusCode: StatusCodes.BAD_REQUEST,
-      success: false,
       message: 'Invalid request: entityType and ids array are required',
+      data: null,
     });
   }
 
@@ -89,8 +89,8 @@ export const bulkMarkAttendance = catchAsync(async (req: Request, res: Response)
   if (!courseId || !date || !attendance || !Array.isArray(attendance)) {
     return sendResponse(res, {
       statusCode: StatusCodes.BAD_REQUEST,
-      success: false,
       message: 'Invalid request: courseId, date, and attendance array are required',
+      data: null,
     });
   }
 

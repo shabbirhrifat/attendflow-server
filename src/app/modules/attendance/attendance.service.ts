@@ -1,12 +1,9 @@
-import { AttendanceModel, QRCodeModel, AttendanceSessionModel } from './attendance.model';
+import { AttendanceModel, AttendanceSessionModel } from './attendance.model';
 import {
     IAttendance,
     IAttendanceCreate,
     IAttendanceUpdate,
     IBulkAttendanceCreate,
-    IQRCode,
-    IQRCodeCreate,
-    IQRCodeCheckIn,
     IAttendanceSession,
     IAttendanceSessionCreate,
     IAttendanceFilters,
@@ -85,8 +82,40 @@ const getAttendanceById = async (id: string): Promise<IAttendance | null> => {
  * Get attendance records with filters
  */
 const getAttendances = async (filters: IAttendanceFilters) => {
-    const result = await AttendanceModel.findMany(filters);
-    return result;
+    const { courseId, userId, startDate, endDate, status, page = 1, limit = 10 } = filters;
+
+    const query: any = {};
+
+    if (courseId) query.courseId = courseId;
+    if (userId) query.userId = userId;
+    if (status) query.status = status;
+
+    if (startDate || endDate) {
+        query.date = {};
+        if (startDate) query.date.$gte = new Date(startDate);
+        if (endDate) query.date.$lte = new Date(endDate);
+    }
+
+    const [attendances, total] = await Promise.all([
+        AttendanceModel.model.find(query)
+            .populate('course', 'id title code')
+            .populate('user', 'id name email')
+            .sort({ date: -1 })
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .lean(),
+        AttendanceModel.model.countDocuments(query),
+    ]);
+
+    return {
+        data: attendances,
+        meta: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+        },
+    };
 };
 
 /**
@@ -140,36 +169,6 @@ const getStudentAttendanceSummary = async (
 
     const summary = await AttendanceModel.getStudentSummary(userId, startDate, endDate);
     return summary;
-};
-
-/**
- * Create QR code for attendance check-in
- */
-const createQRCode = async (data: IQRCodeCreate): Promise<IQRCode> => {
-    // Check if attendance session exists
-    const session = await AttendanceSessionModel.findById(data.attendanceSessionId);
-
-    if (!session) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'Attendance session not found');
-    }
-
-    const qrCode = await QRCodeModel.create(data);
-    return qrCode;
-};
-
-/**
- * Process QR code check-in
- */
-const processQRCodeCheckIn = async (data: IQRCodeCheckIn) => {
-    // Check if user exists
-    const user = await UserModel.findById(data.userId);
-
-    if (!user) {
-        throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
-    }
-
-    const attendance = await QRCodeModel.processCheckIn(data);
-    return attendance;
 };
 
 /**
@@ -307,8 +306,6 @@ export const attendanceServices = {
     bulkMarkAttendance,
     getCourseAttendanceSummary,
     getStudentAttendanceSummary,
-    createQRCode,
-    processQRCodeCheckIn,
     createAttendanceSession,
     getAttendanceDashboard,
 };

@@ -22,6 +22,7 @@ export interface INotificationCreate {
   message: string;
   type?: NotificationType;
   readStatus?: boolean;
+  emailStatus?: EmailStatus;
 }
 
 // For updating a notification

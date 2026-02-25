@@ -9,17 +9,20 @@ import {
     IStudentProfileUpdate,
     IStudentFilters,
     IStudentAttendanceSummary,
-    IStudentDashboard
+    IStudentDashboard,
+    IStudentStats,
 } from './student.interface';
 import QueryBuilder from '../../builder/QueryBuilder';
 import AppError from '../../errors/AppError';
 import { StatusCodes } from 'http-status-codes';
 import UserModel from '../user/user.model';
+import { IUserResponse } from '../user/user.interface';
 import { generateStudentId, generateStudentUserId } from '../../utils/idGenerator';
 import { hashInfo } from '../../utils/hashInfo';
 import { AttendanceModel } from '../attendance/attendance.model';
 import { CourseEnrollmentModel } from '../course/course.model';
 import { LeaveModel } from '../leave/leave.model';
+import { CourseModel } from '../course/course.model';
 import mongoose from 'mongoose';
 
 /** Create a new Student profile */
@@ -543,6 +546,247 @@ const getStudentDashboard = async (studentId: string): Promise<IStudentDashboard
     };
 };
 
+// Assignment methods
+const assignStudentToBatch = async (studentId: string, batchId: string): Promise<IStudentWithUser | null> => {
+    const student = await StudentModel.model.findById(studentId);
+
+    if (!student) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
+    }
+
+    const batch = await BatchModel.model.findById(batchId);
+    if (!batch) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Batch not found');
+    }
+
+    const updatedStudent = await StudentModel.model.findByIdAndUpdate(
+        studentId,
+        { batchId },
+        { new: true }
+    ).populate('user').populate('batch').populate('department');
+
+    return updatedStudent as unknown as IStudentWithUser;
+};
+
+const removeStudentFromBatch = async (studentId: string): Promise<IStudentWithUser | null> => {
+    const student = await StudentModel.model.findById(studentId);
+
+    if (!student) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
+    }
+
+    const updatedStudent = await StudentModel.model.findByIdAndUpdate(
+        studentId,
+        { $unset: { batchId: '' } },
+        { new: true }
+    ).populate('user').populate('batch').populate('department');
+
+    return updatedStudent as unknown as IStudentWithUser;
+};
+
+const assignStudentToDepartment = async (studentId: string, departmentId: string): Promise<IStudentWithUser | null> => {
+    const student = await StudentModel.model.findById(studentId);
+
+    if (!student) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
+    }
+
+    const department = await DepartmentModel.model.findById(departmentId);
+    if (!department) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
+    }
+
+    const updatedStudent = await StudentModel.model.findByIdAndUpdate(
+        studentId,
+        { departmentId },
+        { new: true }
+    ).populate('user').populate('batch').populate('department');
+
+    return updatedStudent as unknown as IStudentWithUser;
+};
+
+const removeStudentFromDepartment = async (studentId: string): Promise<IStudentWithUser | null> => {
+    const student = await StudentModel.model.findById(studentId);
+
+    if (!student) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
+    }
+
+    const updatedStudent = await StudentModel.model.findByIdAndUpdate(
+        studentId,
+        { $unset: { departmentId: '' } },
+        { new: true }
+    ).populate('user').populate('batch').populate('department');
+
+    return updatedStudent as unknown as IStudentWithUser;
+};
+
+const assignStudentToCourse = async (studentId: string, courseId: string): Promise<any> => {
+    const student = await StudentModel.model.findById(studentId);
+    if (!student) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
+    }
+
+    const course = await CourseModel.model.findById(courseId);
+    if (!course) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Course not found');
+    }
+
+    // Check if already enrolled
+    const existing = await CourseEnrollmentModel.model.findOne({ studentId, courseId });
+    if (existing) {
+        throw new AppError(StatusCodes.CONFLICT, 'Student is already enrolled in this course');
+    }
+
+    const enrollment = await CourseEnrollmentModel.model.create({
+        studentId,
+        courseId,
+    });
+
+    return enrollment;
+};
+
+const removeStudentFromCourse = async (studentId: string, courseId: string): Promise<void> => {
+    const enrollment = await CourseEnrollmentModel.model.findOneAndDelete({
+        studentId,
+        courseId,
+    });
+
+    if (!enrollment) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Enrollment not found');
+    }
+};
+
+const bulkAssignStudentsToBatch = async (studentIds: string[], batchId: string): Promise<{ matched: number; modified: number }> => {
+    const batch = await BatchModel.model.findById(batchId);
+    if (!batch) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Batch not found');
+    }
+
+    const result = await StudentModel.model.updateMany(
+        { _id: { $in: studentIds } },
+        { batchId }
+    );
+
+    return { matched: result.matchedCount, modified: result.modifiedCount };
+};
+
+const bulkAssignStudentsToDepartment = async (studentIds: string[], departmentId: string): Promise<{ matched: number; modified: number }> => {
+    const department = await DepartmentModel.model.findById(departmentId);
+    if (!department) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Department not found');
+    }
+
+    const result = await StudentModel.model.updateMany(
+        { _id: { $in: studentIds } },
+        { departmentId }
+    );
+
+    return { matched: result.matchedCount, modified: result.modifiedCount };
+};
+
+const getUnassignedStudents = async (filters: any = {}): Promise<IStudentWithUser[]> => {
+    const { batchId, departmentId, page = 1, limit = 10 } = filters;
+
+    const query: any = {};
+
+    // Filter students without batch or department
+    if (batchId === 'none') {
+        query.batchId = { $exists: false };
+    } else if (batchId) {
+        query.batchId;
+    }
+
+    if (departmentId === 'none') {
+        query.departmentId = { $exists: false };
+    } else if (departmentId) {
+        query.departmentId;
+    }
+
+    const students = await StudentModel.model.find(query)
+        .populate('user', 'id name email')
+        .populate('batch', 'id name')
+        .populate('department', 'id name')
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean();
+
+    return students as unknown as IStudentWithUser[];
+};
+
+const updateStudentProfile = async (studentId: string, data: IStudentProfileUpdate): Promise<IUserResponse> => {
+    const student = await StudentModel.model.findById(studentId);
+    if (!student) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'Student not found');
+    }
+
+    // Update user profile
+    const updatedUser = await UserModel.model.findByIdAndUpdate(
+        student.userId,
+        { $set: data },
+        { new: true }
+    ).select('-password').lean();
+
+    if (!updatedUser) {
+        throw new AppError(StatusCodes.NOT_FOUND, 'User not found');
+    }
+
+    return updatedUser as IUserResponse;
+};
+
+const getStudentStats = async (filters?: any): Promise<IStudentStats> => {
+    const { batchId, departmentId, semester } = filters || {};
+
+    const matchQuery: any = {};
+
+    if (batchId) matchQuery.batchId = batchId;
+    if (departmentId) matchQuery.departmentId = departmentId;
+    if (semester) matchQuery.semester = semester;
+
+    const [totalStudents, activeStudents, byBatch, byDepartment] = await Promise.all([
+        StudentModel.model.countDocuments(matchQuery),
+        StudentModel.model.countDocuments({ ...matchQuery, isActive: true }),
+        StudentModel.model.aggregate([
+            { $match: matchQuery },
+            { $group: { _id: '$batchId', count: { $sum: 1 } } },
+        ]),
+        StudentModel.model.aggregate([
+            { $match: matchQuery },
+            { $group: { _id: '$departmentId', count: { $sum: 1 } } },
+        ]),
+    ]);
+
+    const studentsByBatch = byBatch.reduce((acc: Record<string, number>, item: any) => {
+        acc[item._id?.toString() || 'unassigned'] = item.count;
+        return acc;
+    }, {});
+
+    const studentsByDepartment = byDepartment.reduce((acc: Record<string, number>, item: any) => {
+        acc[item._id?.toString() || 'unassigned'] = item.count;
+        return acc;
+    }, {});
+
+    // Get average GPA
+    const gpaResult = await StudentModel.model.aggregate([
+        { $match: matchQuery },
+        {
+            $group: {
+                _id: null,
+                avgGPA: { $avg: '$gpa' },
+            },
+        },
+    ]);
+
+    return {
+        totalStudents,
+        activeStudents,
+        inactiveStudents: totalStudents - activeStudents,
+        studentsByBatch,
+        studentsByDepartment,
+        averageGPA: gpaResult[0]?.avgGPA || 0,
+    };
+};
+
 // Export all student services
 export const StudentService = {
     createStudent,
@@ -556,6 +800,17 @@ export const StudentService = {
     getStudentAttendanceSummary,
     submitLeaveRequest,
     getStudentDashboard,
+    assignStudentToBatch,
+    removeStudentFromBatch,
+    assignStudentToDepartment,
+    removeStudentFromDepartment,
+    assignStudentToCourse,
+    removeStudentFromCourse,
+    bulkAssignStudentsToBatch,
+    bulkAssignStudentsToDepartment,
+    getUnassignedStudents,
+    updateStudentProfile,
+    getStudentStats,
 };
 
 export default StudentService;

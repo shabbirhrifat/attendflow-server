@@ -69,6 +69,7 @@ export const revokeSession = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     message: result.message,
+    data: null,
   });
 });
 
@@ -90,6 +91,7 @@ export const revokeOtherSessions = catchAsync(async (req: Request, res: Response
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     message: result.message,
+    data: null,
   });
 });
 
@@ -109,6 +111,7 @@ export const revokeAllSessions = catchAsync(async (req: Request, res: Response) 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     message: result.message,
+    data: null,
   });
 });
 

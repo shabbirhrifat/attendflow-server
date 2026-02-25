@@ -1,5 +1,6 @@
 import { Teacher } from './teacher.schema';
-import { ClassSchedule, Course, Subject } from '../course/course.schema';
+import { ClassSchedule, Course } from '../course/course.schema';
+import { Subject } from '../organization/organization.schema';
 import BaseRepository from '../../repositories/BaseRepository';
 import mongoose from 'mongoose';
 

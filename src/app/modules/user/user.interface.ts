@@ -1,14 +1,37 @@
-import { User } from '@prisma/client';
+// Local type definitions for User module
 
-// Define types locally since they're not exported from @prisma/client
 export type UserRole = 'ADMIN' | 'TEACHER' | 'STUDENT';
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING';
 
-// Export the Prisma-generated User type
-export type IUser = User;
+// User type (local definition)
+export interface IUser {
+    id: string;
+    _id: string;
+    name: string;
+    email: string;
+    username?: string;
+    password?: string;
+    phone?: string;
+    avatar?: string;
+    role: UserRole;
+    status: UserStatus;
+    departmentId?: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
 
 // For creating a new user (without id and timestamps)
-export type IUserCreate = Omit<User, 'id' | 'createdAt' | 'updatedAt'>;
+export interface IUserCreate {
+    name: string;
+    email: string;
+    username?: string;
+    password?: string;
+    phone?: string;
+    avatar?: string;
+    role: UserRole;
+    status?: UserStatus;
+    departmentId?: string;
+}
 
 // For updating a user (all fields optional)
 export type IUserUpdate = Partial<IUserCreate>;
@@ -18,36 +41,37 @@ export type IUserResponse = Omit<IUser, 'password'>;
 
 // User profile response with additional information
 export interface IUserProfile extends IUserResponse {
-  totalCourses?: number;
-  totalAttendances?: number;
-  totalLeaves?: number;
+    totalCourses?: number;
+    totalAttendances?: number;
+    totalLeaves?: number;
 }
 
 // User statistics
 export interface IUserStats {
-  totalUsers: number;
-  activeUsers: number;
-  inactiveUsers: number;
-  suspendedUsers: number;
-  usersByRole: Record<UserRole, number>;
+    totalUsers: number;
+    activeUsers: number;
+    inactiveUsers: number;
+    suspendedUsers: number;
+    usersByRole: Record<UserRole, number>;
 }
 
 // User filters for queries
 export interface IUserFilters {
-  role?: UserRole;
-  status?: UserStatus;
-  search?: string;
-  dateRange?: {
-    start: Date;
-    end: Date;
-  };
+    role?: UserRole;
+    status?: UserStatus;
+    search?: string;
+    dateRange?: {
+        start: Date;
+        end: Date;
+    };
 }
 
 // User activity log
 export interface IUserActivity {
-  id: string;
-  userId: string;
-  action: string;
-  timestamp: Date;
-  details?: Record<string, any>;
+    id: string;
+    _id: string;
+    userId: string;
+    action: string;
+    timestamp: Date;
+    details?: Record<string, any>;
 }

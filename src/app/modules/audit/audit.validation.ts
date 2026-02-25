@@ -29,20 +29,36 @@ const cleanupLogsSchema = z.object({
 
 // Query parameters for failed logins
 const failedLoginsQuerySchema = z.object({
-  hours: z.string().transform(Number).min(1).max(168).default(24), // Max 7 days
+  hours: z.string().default('24').transform((val) => {
+    const num = Number(val);
+    if (num < 1 || num > 168) throw new Error('Hours must be between 1 and 168');
+    return num;
+  }),
   page: z.string().transform(Number).optional(),
   limit: z.string().transform(Number).optional(),
 });
 
 // Query parameters for recent activity
 const recentActivityQuerySchema = z.object({
-  hours: z.string().transform(Number).min(1).max(168).default(24),
-  limit: z.string().transform(Number).min(1).max(500).default(100),
+  hours: z.string().default('24').transform((val) => {
+    const num = Number(val);
+    if (num < 1 || num > 168) throw new Error('Hours must be between 1 and 168');
+    return num;
+  }),
+  limit: z.string().default('100').transform((val) => {
+    const num = Number(val);
+    if (num < 1 || num > 500) throw new Error('Limit must be between 1 and 500');
+    return num;
+  }),
 });
 
 // Query parameters for audit stats
 const auditStatsQuerySchema = z.object({
-  days: z.string().transform(Number).min(1).max(365).default(30),
+  days: z.string().default('30').transform((val) => {
+    const num = Number(val);
+    if (num < 1 || num > 365) throw new Error('Days must be between 1 and 365');
+    return num;
+  }),
 });
 
 export const AuditValidation = {

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { studentServices } from './student.service';
+import { StudentService } from './student.service';
 import { z } from 'zod';
 import sendResponse from '../../utils/sendResponse';
 import catchAsync from '../../utils/catchAsync';
@@ -34,7 +34,7 @@ export const assignStudentToBatch = catchAsync(async (req: Request, res: Respons
   const { studentId } = req.params;
   const validatedData = assignToBatchSchema.parse(req.body);
 
-  const result = await studentServices.assignStudentToBatch(studentId, validatedData.batchId);
+  const result = await StudentService.assignStudentToBatch(studentId, validatedData.batchId);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -46,7 +46,7 @@ export const assignStudentToBatch = catchAsync(async (req: Request, res: Respons
 export const removeStudentFromBatch = catchAsync(async (req: Request, res: Response) => {
   const { studentId } = req.params;
 
-  const result = await studentServices.removeStudentFromBatch(studentId);
+  const result = await StudentService.removeStudentFromBatch(studentId);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -59,7 +59,7 @@ export const assignStudentToDepartment = catchAsync(async (req: Request, res: Re
   const { studentId } = req.params;
   const validatedData = assignToDepartmentSchema.parse(req.body);
 
-  const result = await studentServices.assignStudentToDepartment(studentId, validatedData.departmentId);
+  const result = await StudentService.assignStudentToDepartment(studentId, validatedData.departmentId);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -71,7 +71,7 @@ export const assignStudentToDepartment = catchAsync(async (req: Request, res: Re
 export const removeStudentFromDepartment = catchAsync(async (req: Request, res: Response) => {
   const { studentId } = req.params;
 
-  const result = await studentServices.removeStudentFromDepartment(studentId);
+  const result = await StudentService.removeStudentFromDepartment(studentId);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -84,7 +84,7 @@ export const assignStudentToCourse = catchAsync(async (req: Request, res: Respon
   const { studentId } = req.params;
   const validatedData = assignToCourseSchema.parse(req.body);
 
-  const result = await studentServices.assignStudentToCourse(studentId, validatedData.courseId);
+  const result = await StudentService.assignStudentToCourse(studentId, validatedData.courseId);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -96,7 +96,7 @@ export const assignStudentToCourse = catchAsync(async (req: Request, res: Respon
 export const removeStudentFromCourse = catchAsync(async (req: Request, res: Response) => {
   const { studentId, courseId } = req.params;
 
-  const result = await studentServices.removeStudentFromCourse(studentId, courseId);
+  const result = await StudentService.removeStudentFromCourse(studentId, courseId);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -108,7 +108,7 @@ export const removeStudentFromCourse = catchAsync(async (req: Request, res: Resp
 export const bulkAssignStudentsToBatch = catchAsync(async (req: Request, res: Response) => {
   const validatedData = bulkAssignToBatchSchema.parse(req.body);
 
-  const result = await studentServices.bulkAssignStudentsToBatch(validatedData.studentIds, validatedData.batchId);
+  const result = await StudentService.bulkAssignStudentsToBatch(validatedData.studentIds, validatedData.batchId);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -120,7 +120,7 @@ export const bulkAssignStudentsToBatch = catchAsync(async (req: Request, res: Re
 export const bulkAssignStudentsToDepartment = catchAsync(async (req: Request, res: Response) => {
   const validatedData = bulkAssignToDepartmentSchema.parse(req.body);
 
-  const result = await studentServices.bulkAssignStudentsToDepartment(validatedData.studentIds, validatedData.departmentId);
+  const result = await StudentService.bulkAssignStudentsToDepartment(validatedData.studentIds, validatedData.departmentId);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -130,7 +130,7 @@ export const bulkAssignStudentsToDepartment = catchAsync(async (req: Request, re
 });
 
 export const getUnassignedStudents = catchAsync(async (req: Request, res: Response) => {
-  const result = await studentServices.getUnassignedStudents();
+  const result = await StudentService.getUnassignedStudents();
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,

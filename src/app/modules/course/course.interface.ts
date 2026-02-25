@@ -174,6 +174,8 @@ export interface ICourseStats {
   activeCourses: number;
   inactiveCourses: number;
   coursesByDepartment: Array<{ departmentId: string; count: number }>;
+  coursesByBatch?: Record<string, number>;
+  coursesByTeacher?: Record<string, number>;
 }
 
 export interface ICourseEnrollmentStats {
@@ -187,6 +189,7 @@ export interface IClassScheduleStats {
   activeSchedules: number;
   inactiveSchedules: number;
   schedulesByDay: Record<number, number>;
+  schedulesByTeacher?: Array<{ teacherId: string; count: number }>;
 }
 
 // API Response types

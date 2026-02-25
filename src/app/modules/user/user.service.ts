@@ -165,9 +165,9 @@ const getUserProfile = async (id: string): Promise<IUserProfile | null> => {
   // Get related data separately
   const [teacherData, studentData, leaveRequests, attendanceRecords] = await Promise.all([
     // If user is a teacher, get their courses
-    TeacherModel.findByUserId(id).populate('courses'),
+    TeacherModel.model.findOne({ userId: id }).populate('courses'),
     // If user is a student, get their enrollments
-    StudentModel.findByUserId(id).populate('batch').populate('department'),
+    StudentModel.model.findOne({ userId: id }).populate('batch').populate('department'),
     // Get leave requests
     LeaveRequestModel.model.find({ userId: id, status: 'APPROVED' }),
     // Get attendance records

@@ -6,7 +6,7 @@ import config from '../config';
 import handleValidationError from '../errors/HandleValidationError';
 import handleZodError from '../errors/HandleZodError';
 import handleCastError from '../errors/HandleCastError';
-import handleDuplicateError from '../errors/HandleDuplicateError';
+import handleDuplicateError from '../errors/HandleMongooseError';
 import handleDatabaseError from '../errors/HandleDatabaseError';
 import AppError from '../errors/AppError';
 

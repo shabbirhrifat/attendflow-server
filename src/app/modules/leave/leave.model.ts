@@ -322,6 +322,7 @@ const leavePolicyRepository = new LeavePolicyRepository();
 // Export for backward compatibility
 export { LeaveRequest, LeaveBalance, LeavePolicy };
 export const LeaveModel = leaveRequestRepository;
+export const LeaveRequestModel = leaveRequestRepository;
 export const LeaveBalanceModel = leaveBalanceRepository;
 export const LeavePolicyModel = leavePolicyRepository;
 

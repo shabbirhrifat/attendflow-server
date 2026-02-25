@@ -103,30 +103,6 @@ const getStudentAttendanceSummary = catchAsync(async (req: Request, res: Respons
 });
 
 /**
- * Create QR code for attendance check-in
- */
-const createQRCode = catchAsync(async (req: Request, res: Response) => {
-    const result = await attendanceServices.createQRCode(req.body);
-    sendResponse(res, {
-        statusCode: StatusCodes.CREATED,
-        message: "QR code created successfully",
-        data: result,
-    });
-});
-
-/**
- * Process QR code check-in
- */
-const processQRCodeCheckIn = catchAsync(async (req: Request, res: Response) => {
-    const result = await attendanceServices.processQRCodeCheckIn(req.body);
-    sendResponse(res, {
-        statusCode: StatusCodes.CREATED,
-        message: "Check-in successful",
-        data: result,
-    });
-});
-
-/**
  * Create attendance session
  */
 const createAttendanceSession = catchAsync(async (req: Request, res: Response) => {
@@ -157,8 +133,6 @@ export const attendanceControllers = {
     bulkMarkAttendance,
     getCourseAttendanceSummary,
     getStudentAttendanceSummary,
-    createQRCode,
-    processQRCodeCheckIn,
     createAttendanceSession,
     getAttendanceDashboard,
 };

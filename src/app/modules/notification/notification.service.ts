@@ -92,8 +92,9 @@ const createNotification = async (data: INotificationCreate): Promise<INotificat
     }
 
     // Get notification with recipient data
-    const notificationWithRecipient = await NotificationModel.findById(notification.id)
-        .populate('recipient', 'id name email role');
+    const notificationWithRecipient = await NotificationModel.model.findById(notification._id)
+        .populate('recipient', 'id name email role')
+        .lean();
 
     return notificationWithRecipient as INotificationResponse;
 };
@@ -106,7 +107,7 @@ const sendNotification = async (payload: ISendNotificationPayload): Promise<INot
         message: payload.message,
         type: payload.type || 'IN_APP',
         readStatus: false,
-        emailStatus: payload.type === 'EMAIL' || payload.type === 'BOTH' ? 'PENDING' : null,
+        emailStatus: payload.type === 'EMAIL' || payload.type === 'BOTH' ? 'PENDING' : undefined,
     };
 
     return createNotification(notificationData);
@@ -151,8 +152,9 @@ const sendEmailNotification = async (payload: IEmailNotificationPayload): Promis
         emailStatus: emailResult.success ? 'SENT' : 'FAILED',
     });
 
-    const populated = await NotificationModel.findById(updatedNotification.id)
-        .populate('recipient', 'id name email role');
+    const populated = await NotificationModel.model.findById(updatedNotification._id)
+        .populate('recipient', 'id name email role')
+        .lean();
 
     return populated as INotificationResponse;
 };
@@ -247,22 +249,23 @@ const getAllNotifications = async (query: INotificationQueryOptions): Promise<IN
     const finalFilter = { ...filter, ...whereClause };
 
     // Execute query
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+
     const [notifications, total] = await Promise.all([
         NotificationModel.model.find(finalFilter)
             .populate('recipient', 'id name email role')
             .sort(sort)
-            .skip((pagination.page - 1) * pagination.limit)
-            .limit(pagination.limit),
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .lean(),
         NotificationModel.model.countDocuments(finalFilter),
     ]);
 
-    const meta = queryBuilder.getPaginationMeta(total);
-    const page = query.page || 1;
-    const limit = query.limit || 20;
-
     return {
         notifications: notifications.map((notification: any) => ({
-            id: notification.id,
+            _id: notification._id,
+            id: notification._id?.toString(),
             title: notification.title,
             message: notification.message,
             type: notification.type,
@@ -284,8 +287,9 @@ const getAllNotifications = async (query: INotificationQueryOptions): Promise<IN
 
 // Get a single notification by ID
 const getNotificationById = async (id: string): Promise<INotificationResponse | null> => {
-    const notification = await NotificationModel.findById(id)
-        .populate('recipient', 'id name email role');
+    const notification = await NotificationModel.model.findById(id)
+        .populate('recipient', 'id name email role')
+        .lean();
 
     return notification as INotificationResponse | null;
 };
@@ -293,20 +297,21 @@ const getNotificationById = async (id: string): Promise<INotificationResponse | 
 // Update a notification
 const updateNotification = async (id: string, data: INotificationUpdate): Promise<INotificationResponse | null> => {
     // Check if notification exists
-    const existingNotification = await NotificationModel.findById(id);
+    const existingNotification = await NotificationModel.model.findById(id);
 
     if (!existingNotification) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Notification not found');
     }
 
-    const updatedNotification = await NotificationModel.update(id, data);
+    const updatedNotification = await NotificationModel.model.findByIdAndUpdate(id, data, { new: true });
 
     if (!updatedNotification) {
         return null;
     }
 
-    const populated = await NotificationModel.findById(id)
-        .populate('recipient', 'id name email role');
+    const populated = await NotificationModel.model.findById(id)
+        .populate('recipient', 'id name email role')
+        .lean();
 
     return populated as INotificationResponse;
 };
@@ -319,19 +324,20 @@ const markNotificationAsRead = async (id: string, readStatus: boolean): Promise<
 // Delete a notification
 const deleteNotification = async (id: string): Promise<void> => {
     // Check if notification exists
-    const existingNotification = await NotificationModel.findById(id);
+    const existingNotification = await NotificationModel.model.findById(id);
 
     if (!existingNotification) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Notification not found');
     }
 
-    await NotificationModel.delete(id);
+    await NotificationModel.model.findByIdAndDelete(id);
 };
 
 // Resend failed email notifications
 const resendFailedEmail = async (id: string): Promise<INotificationResponse | null> => {
-    const notification = await NotificationModel.findById(id)
-        .populate('recipient', 'id name email role');
+    const notification = await NotificationModel.model.findById(id)
+        .populate('recipient', 'id name email role')
+        .lean();
 
     if (!notification) {
         throw new AppError(StatusCodes.NOT_FOUND, 'Notification not found');
@@ -348,7 +354,7 @@ const resendFailedEmail = async (id: string): Promise<INotificationResponse | nu
     }
 
     // Update status to pending
-    await NotificationModel.update(id, { emailStatus: 'PENDING' });
+    await NotificationModel.model.findByIdAndUpdate(id, { emailStatus: 'PENDING' });
 
     // Resend email
     const emailResult = await sendEmail(
@@ -358,12 +364,13 @@ const resendFailedEmail = async (id: string): Promise<INotificationResponse | nu
     );
 
     // Update email status
-    await NotificationModel.update(id, {
+    await NotificationModel.model.findByIdAndUpdate(id, {
         emailStatus: emailResult.success ? 'SENT' : 'FAILED',
     });
 
-    const updated = await NotificationModel.findById(id)
-        .populate('recipient', 'id name email role');
+    const updated = await NotificationModel.model.findById(id)
+        .populate('recipient', 'id name email role')
+        .lean();
 
     return updated as INotificationResponse;
 };

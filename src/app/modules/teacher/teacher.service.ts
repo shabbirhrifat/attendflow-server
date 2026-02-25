@@ -1,4 +1,5 @@
 import { TeacherModel, ClassScheduleModel, SubjectModel, TeacherAttendanceModel, TeacherLeaveModel } from './teacher.model';
+import { SubjectModel as OrganizationSubjectModel } from '../organization/organization.model';
 import {
     ITeacher,
     ITeacherCreate,
@@ -530,20 +531,38 @@ export const getAllSubjects = async (filters: any = {}): Promise<{ data: any[]; 
 
         const queryOptions = queryBuilder.getQueryOptions();
 
+        // Build filter
+        const filter: any = {
+            ...queryOptions.filter,
+        };
+
+        // Handle search
+        if (queryOptions.search) {
+            filter.$or = [
+                { name: { $regex: queryOptions.search, $options: 'i' } },
+                { code: { $regex: queryOptions.search, $options: 'i' } },
+            ];
+        }
+
         // Execute query
         const [subjects, total] = await Promise.all([
-            prisma.subject.findMany({
-                where: queryOptions.where,
-                orderBy: queryOptions.orderBy,
-                skip: queryOptions.skip,
-                take: queryOptions.take,
-            }),
-            prisma.subject.count({
-                where: queryOptions.where,
-            }),
+            OrganizationSubjectModel.model.find(filter)
+                .sort(queryOptions.sort || { name: 1 })
+                .skip(queryOptions.skip || 0)
+                .limit(queryOptions.limit || 10)
+                .lean(),
+            OrganizationSubjectModel.model.countDocuments(filter),
         ]);
 
-        const meta = queryBuilder.getPaginationMeta(total);
+        const page = queryOptions.page || 1;
+        const limit = queryOptions.limit || 10;
+
+        const meta = {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+        };
 
         return {
             data: subjects,
@@ -556,7 +575,7 @@ export const getAllSubjects = async (filters: any = {}): Promise<{ data: any[]; 
 
 export const getSubjectById = async (subjectId: string): Promise<any | null> => {
     try {
-        const subject = await SubjectModel.findById(subjectId);
+        const subject = await OrganizationSubjectModel.model.findById(subjectId);
         if (!subject) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Subject not found');
         }
@@ -568,12 +587,12 @@ export const getSubjectById = async (subjectId: string): Promise<any | null> => 
 
 export const updateSubject = async (subjectId: string, data: ISubjectUpdate): Promise<any> => {
     try {
-        const existingSubject = await SubjectModel.findById(subjectId);
+        const existingSubject = await OrganizationSubjectModel.model.findById(subjectId);
         if (!existingSubject) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Subject not found');
         }
 
-        return await SubjectModel.update(subjectId, data);
+        return await OrganizationSubjectModel.model.findByIdAndUpdate(subjectId, data, { new: true });
     } catch (error) {
         throw error;
     }
@@ -581,12 +600,12 @@ export const updateSubject = async (subjectId: string, data: ISubjectUpdate): Pr
 
 export const deleteSubject = async (subjectId: string): Promise<void> => {
     try {
-        const existingSubject = await SubjectModel.findById(subjectId);
+        const existingSubject = await OrganizationSubjectModel.model.findById(subjectId);
         if (!existingSubject) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Subject not found');
         }
 
-        await SubjectModel.delete(subjectId);
+        await OrganizationSubjectModel.model.findByIdAndDelete(subjectId);
     } catch (error) {
         throw error;
     }
@@ -597,49 +616,36 @@ export const deleteSubject = async (subjectId: string): Promise<void> => {
 export const getTeacherDashboard = async (teacherId: string): Promise<ITeacherDashboard> => {
     try {
         // Verify teacher exists
-        const teacher = await TeacherModel.findById(teacherId);
+        const teacher = await TeacherModel.model.findById(teacherId)
+            .populate('user')
+            .populate('department')
+            .lean();
         if (!teacher) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Teacher profile not found');
         }
 
         // Get today's schedule
-        const todaySchedule = await ClassScheduleModel.getTodaySchedule(teacherId);
+        const todaySchedule = await ClassScheduleModel.model.getTodaySchedule(teacherId);
 
         // Get upcoming classes (next 7 days)
-        const upcomingClasses = await ClassScheduleModel.findByTeacherId(teacherId); // Filter in service
+        const upcomingClasses = await ClassScheduleModel.model.findByTeacherId(teacherId);
 
         // Get recent attendance
-        const recentAttendance = await TeacherAttendanceModel.getCourseAttendance('', { limit: 10 }); // Get recent attendance
+        const recentAttendance = await TeacherAttendanceModel.model.getCourseAttendance('', { limit: 10 });
 
         // Get pending leave requests
-        const pendingLeaveRequests = await TeacherLeaveModel.getPendingLeaves(teacherId);
+        const pendingLeaveRequests = await TeacherLeaveModel.model.getPendingLeaves();
+
+        // Get stats
+        const stats = await TeacherModel.model.getStats();
 
         // Create dashboard data
         const dashboard: ITeacherDashboard = {
-            profile: teacher as unknown as ITeacherProfile, // Convert to profile format
-            todaySchedule: todaySchedule as unknown as IClassScheduleView[],
-            upcomingClasses: upcomingClasses as unknown as IClassScheduleView[],
-            recentAttendance: recentAttendance.map(attendance => ({
-                ...attendance,
-                student: {
-                    id: attendance.userId,
-                    name: '', // Get from user data
-                    email: '', // Get from user data
-                    studentId: '', // Get from student data
-                },
-                course: {
-                    id: attendance.courseId,
-                    title: '', // Get from course data
-                    code: '', // Get from course data
-                },
-            } as IAttendanceRecord)),
-            pendingLeaveRequests,
-            classStatistics: {
-                totalClasses: 0, // Calculate from actual data
-                totalStudents: 0, // Calculate from actual data
-                averageAttendance: 0, // Calculate from actual data
-            },
-            notifications: [], // Get from notification service
+            profile: teacher as unknown as ITeacherWithUser,
+            stats,
+            recentActivities: [],
+            upcomingClasses: upcomingClasses as any[],
+            pendingApprovals: pendingLeaveRequests as any[],
         };
 
         return dashboard;
@@ -652,7 +658,7 @@ export const getTeacherDashboard = async (teacherId: string): Promise<ITeacherDa
 export const assignTeacherToDepartment = async (teacherId: string, departmentId: string): Promise<ITeacherWithUser> => {
     try {
         // Check if teacher exists
-        const teacher = await TeacherModel.findById(teacherId);
+        const teacher = await TeacherModel.model.findById(teacherId);
         if (!teacher) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Teacher not found');
         }
@@ -664,7 +670,11 @@ export const assignTeacherToDepartment = async (teacherId: string, departmentId:
         }
 
         // Update teacher with department
-        const updatedTeacher = await TeacherModel.update(teacherId, { departmentId });
+        const updatedTeacher = await TeacherModel.model.findByIdAndUpdate(
+            teacherId,
+            { departmentId },
+            { new: true }
+        ).populate('user').populate('department');
 
         return updatedTeacher as unknown as ITeacherWithUser;
     } catch (error) {
@@ -675,13 +685,17 @@ export const assignTeacherToDepartment = async (teacherId: string, departmentId:
 export const removeTeacherFromDepartment = async (teacherId: string): Promise<ITeacherWithUser> => {
     try {
         // Check if teacher exists
-        const teacher = await TeacherModel.findById(teacherId);
+        const teacher = await TeacherModel.model.findById(teacherId);
         if (!teacher) {
             throw new AppError(StatusCodes.NOT_FOUND, 'Teacher not found');
         }
 
         // Remove teacher from department
-        const updatedTeacher = await TeacherModel.update(teacherId, { departmentId: null });
+        const updatedTeacher = await TeacherModel.model.findByIdAndUpdate(
+            teacherId,
+            { $unset: { departmentId: '' } },
+            { new: true }
+        ).populate('user').populate('department');
 
         return updatedTeacher as unknown as ITeacherWithUser;
     } catch (error) {

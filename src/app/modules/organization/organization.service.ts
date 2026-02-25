@@ -310,7 +310,11 @@ export const updateSemester = async (id: string, data: ISemesterUpdate): Promise
             }
         }
 
-        return await SemesterModel.model.findByIdAndUpdate(id, data, { new: true });
+        const result = await SemesterModel.model.findByIdAndUpdate(id, data, { new: true });
+        if (!result) {
+            throw new AppError(StatusCodes.NOT_FOUND, 'Failed to update semester');
+        }
+        return result;
     } catch (error) {
         throw error;
     }
